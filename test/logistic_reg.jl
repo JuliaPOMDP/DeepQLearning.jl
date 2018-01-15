@@ -28,7 +28,7 @@ y = reshape(y, (2*n_ex,1))
 
 # y = 1.0*((x[:,1] - 0.5).^2 + (x[:, 2] - 0.5).^2 .> 0.15 )
 # y = reshape(y, (n_ex, 1))
-plot(x=x[:,1], y=x[:,2], color=y)
+Gadfly.plot(x=x[:,1], y=x[:,2], color=y)
 
 
 # Build the model

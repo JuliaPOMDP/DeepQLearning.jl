@@ -55,15 +55,21 @@ end
     returns the output of the activation layer as a tensor
     assumes that the input is of shape (batch size, n)
     uses Xavier initialization
-    dense(input::Tensor, hidden_units, activation=identity)
+    dense(input::Tensor, hidden_units; activation=identity, scope="")
 """
-function dense(input::Tensor, hidden_units, activation=identity)
+function dense(input::Tensor, hidden_units; activation=identity, scope="fc")
     input_shape = get(get_shape(input).dims[end])
     weight_shape = (input_shape, hidden_units)
-    var = 1/input_shape # Xavier initialization
-    fc_w = Variable(rand(Normal(0., var), weight_shape...))
-    fc_b = Variable(zeros(hidden_units))
-    a = activation(input*fc_w + fc_b)
+    var = 2/(input_shape + hidden_units) # Xavier initialization
+    fc_W = variable_scope(scope, initializer= Normal(0.0, var)) do
+        get_variable("weight", [weight_shape...], Float32)
+    end
+    fc_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.)) do
+        get_variable("bias", [hidden_units], Float32)
+    end
+    a = variable_scope(scope) do
+        activation(input*fc_W + fc_b)
+    end
     return a
 end
 
@@ -78,17 +84,25 @@ end
     conv2d(inputs::Tensor, num_filters::Int64, kernel_size::Vector{Int64}, activation=identity; stride::Int64=1, padding::String="SAME")
 
 """
-function conv2d(inputs::Tensor, num_filters::Int64, kernel_size::Vector{Int64},
-                activation=identity; stride::Int64=1, padding::String="SAME")
+function conv2d(inputs::Tensor, num_filters::Int64, kernel_size::Vector{Int64};
+                activation=identity, stride::Int64=1, padding::String="SAME", scope="conv")
     # assume inputs is of shape batch, height, width, channels
     input_channels = get(get_shape(inputs).dims[end])
     weight_shape = (kernel_size[1], kernel_size[2], input_channels, num_filters)
     var = 1/(kernel_size[1]*kernel_size[2]*input_channels) # Xavier initialization
+    conv_W =  variable_scope(scope, initializer=Normal(0.0, var)) do
+        get_variable("weight", [weight_shape...], Float32)
+    end
+    conv_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.)) do
+        get_variable("bias", [num_filters], Float32)
+    end
     conv_W = Variable(map(Float32,rand(Normal(0., var), weight_shape...)))
     conv_b = Variable(zeros(num_filters))
-    z = nn.conv2d(inputs, conv_W, Int64[1, stride, stride, 1], padding) + conv_b
-    a = activation(z)
-    a = cast(a, Float32)
+    a = variable_scope(scope) do
+        z = nn.conv2d(inputs, conv_W, Int64[1, stride, stride, 1], padding) + conv_b
+        a = activation(z)
+        a = cast(a, Float32)
+    end
     return a
 end
 
@@ -106,12 +120,12 @@ end
 """
     Build a multi-layer perceptron (mlp) model given the list of nodes in each layer and the input tensor
 """
-function mlp(input::Tensor, hiddens::Vector{Int64}, num_output::Int64, final_activation=identity)
-    a = input
-    for h in hiddens
-        a = dense(a, h, nn.relu)
+function mlp(input::Tensor, hiddens::Vector{Int64}, num_output::Int64; final_activation=identity, scope="mlp")
+    a = flatten(input, batch_dim=1)
+    for (i,h) in enumerate(hiddens)
+        a = dense(a, h, activation=nn.relu, scope=scope*"/fc_$i")
     end
-    a = dense(a, num_output, final_activation)
+    a = dense(a, num_output, activation=final_activation, scope=scope*"/fc_out")
     return a
 end
 
@@ -126,18 +140,44 @@ end
 
 """
 
-function cnn_to_mlp(inputs, convs, hiddens, num_output, final_activation=identity)
+function cnn_to_mlp(inputs, convs, hiddens, num_output; final_activation=identity, scope="conv2mlp")
     out = inputs
-    for (nfilters, kernel_size, stride) in convs
-        out = conv2d(out, nfilters, kernel_size, nn.relu, stride=stride)
+    for (i,(nfilters, kernel_size, stride)) in enumerate(convs)
+        out = conv2d(out, nfilters, kernel_size,
+                     activation=nn.relu, stride=stride, scope=scope*"/conv_$i")
     end
-    out = flatten(out)
-    for h in hiddens
-        out = dense(out, h, nn.relu)
+    out = variable_scope(scope) do
+        flatten(out)
     end
-    out = dense(out, num_output, final_activation)
+    for (i,h) in enumerate(hiddens)
+        out = dense(out, h, activation=nn.relu, scope=scope*"/fc_$i")
+    end
+    out = dense(out, num_output, activation=final_activation)
     return out
 end
+
+
+"""
+returns a list of trainable variables whose name contains name
+"""
+function get_train_vars_by_name(name::String)
+    return [var for var in get_def_graph().collections[:TrainableVariables]
+            if contains(tf.get_name(var.var_node), name)]
+end
+
+"""
+returns a tensorflow operation to update a target network
+if you run the operation, it will copy the value of the weights and biases in q_scope to
+the weights and biases in target_q_scope
+"""
+function add_update_target_op(q_scope="active_q", target_q_scope="target_q")
+    q_weights = get_train_vars_by_name(q_scope)
+    target_q_weights = get_train_vars_by_name(target_q_scope)
+
+    all_ops = [tf.assign(target_q_weights[i], q_weights[i]) for i in 1:length(q_weights)]
+    return update_target_op = tf.group(all_ops..., name="update_target_op")
+end
+
 
 # functions from tensorflow.jl tutorial, no control over the initialization
 function weight_variable(shape)

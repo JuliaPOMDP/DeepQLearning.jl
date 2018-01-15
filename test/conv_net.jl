@@ -130,7 +130,10 @@ y_ = placeholder(Float32, shape=[-1, 10])
 
 x_image = reshape(x, [-1, 28, 28, 1])
 
-y_conv = cnn_to_mlp(x_image, [(32, [5,5], 1), (64, [5,5], 1)], [1024], 10, nn.softmax)
+y_conv = cnn_to_mlp(x_image, [(32, [5,5], 1), (64, [5,5], 1)],
+                      [1024], 10,
+                       final_activation=nn.softmax,
+                        scope="cool")
 
 # h_conv1 = conv2d(x_image, 32, [5,5], nn.relu)
 # h_pool1 = max_pool_2x2(h_conv1)
@@ -166,18 +169,19 @@ accuracy = reduce_mean(cast(correct_prediction, Float32))
 run(session, global_variables_initializer())
 
 loss_hist = Float64[]
-for i in 1:200
+for i in 1:100
     batch = next_batch(loader, 50)
-    if i%100 == 1
-        train_accuracy = run(session, accuracy, Dict(x=>batch[1], y_=>batch[2]))
-        info("step $i, training accuracy $train_accuracy")
-    end
     loss, _ = run(session, [cross_entropy,train_step], Dict(x=>batch[1], y_=>batch[2]))
     push!(loss_hist, loss)
+    if i%10 == 1
+        train_accuracy = run(session, accuracy, Dict(x=>batch[1], y_=>batch[2]))
+        println("step $i, training accuracy $train_accuracy, loss $loss")
+    end
 end
+
 loss_hist
 loss_hist[1]
-plot(x=1:length(loss_hist), y=loss_hist)
+Gadfly.plot(x=1:length(loss_hist), y=loss_hist)
 
 testx, testy = load_test_set()
 
