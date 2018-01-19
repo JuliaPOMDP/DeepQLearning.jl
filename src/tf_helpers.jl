@@ -2,6 +2,13 @@
 # Helpers function for Tensorflow.jl to make building models easier
 #
 
+########### General Helpers ###################################
+
+
+
+
+############ MODEL BUILDING ###################################
+
 """
     compute_flat_dim(dims::Vector{Nullable{Int64}})
 Multiply all the known dimensions
@@ -96,8 +103,6 @@ function conv2d(inputs::Tensor, num_filters::Int64, kernel_size::Vector{Int64};
     conv_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.)) do
         get_variable("bias", [num_filters], Float32)
     end
-    conv_W = Variable(map(Float32,rand(Normal(0., var), weight_shape...)))
-    conv_b = Variable(zeros(num_filters))
     a = variable_scope(scope) do
         z = nn.conv2d(inputs, conv_W, Int64[1, stride, stride, 1], padding) + conv_b
         a = activation(z)
@@ -147,12 +152,12 @@ function cnn_to_mlp(inputs, convs, hiddens, num_output; final_activation=identit
                      activation=nn.relu, stride=stride, scope=scope*"/conv_$i")
     end
     out = variable_scope(scope) do
-        flatten(out)
+        flatten(out, batch_dim=1)
     end
     for (i,h) in enumerate(hiddens)
         out = dense(out, h, activation=nn.relu, scope=scope*"/fc_$i")
     end
-    out = dense(out, num_output, activation=final_activation)
+    out = dense(out, num_output, activation=final_activation, scope=scope*"/fc_out")
     return out
 end
 
@@ -164,20 +169,6 @@ function get_train_vars_by_name(name::String)
     return [var for var in get_def_graph().collections[:TrainableVariables]
             if contains(tf.get_name(var.var_node), name)]
 end
-
-"""
-returns a tensorflow operation to update a target network
-if you run the operation, it will copy the value of the weights and biases in q_scope to
-the weights and biases in target_q_scope
-"""
-function add_update_target_op(q_scope="active_q", target_q_scope="target_q")
-    q_weights = get_train_vars_by_name(q_scope)
-    target_q_weights = get_train_vars_by_name(target_q_scope)
-
-    all_ops = [tf.assign(target_q_weights[i], q_weights[i]) for i in 1:length(q_weights)]
-    return update_target_op = tf.group(all_ops..., name="update_target_op")
-end
-
 
 # functions from tensorflow.jl tutorial, no control over the initialization
 function weight_variable(shape)

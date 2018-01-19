@@ -7,3 +7,16 @@
 [![codecov.io](http://codecov.io/github/MaximeBouton/DeepQLearning.jl/coverage.svg?branch=master)](http://codecov.io/github/MaximeBouton/DeepQLearning.jl?branch=master)
 
 Implementation of the DeepQLearning algorithm in Julia using TensorFlow.jl and POMDPs.jl.
+
+## Installation
+
+
+## Usage
+
+
+## Work in progress
+
+- saving and restoring models 
+- Prioritized replay
+- dueling
+- double Q

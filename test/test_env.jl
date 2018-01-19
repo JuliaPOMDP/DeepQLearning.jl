@@ -1,4 +1,4 @@
-# ### Test environment
+##### Simple Test environment
 using POMDPs, POMDPToolbox, DeepRL
 
 mutable struct TestPOMDP <: POMDP{Tuple{Vector{Int64}, Int64}, Int64, Array{Float64}}
@@ -87,32 +87,32 @@ function POMDPs.n_actions(pomdp::TestPOMDP)
     return 4
 end
 
-rng = MersenneTwister(0)
-
-env = POMDPEnvironment(TestPOMDP(1,))
-
-
-
-for i=1:100
-    nsteps = 10
-    done = false
-    r_tot = 0.0
-    step = 0
-
-
-    obs = reset(env)
-    # println("start at t=0 obs $obs")
-    # println("Start state $(env.state)")
-    while !done && step <= nsteps
-        a = sample_action(env)
-        obs, rew, done, info = step!(env, a)
-        # println("state ", env.state, " action ", a)
-        # println("Reward ", rew)
-        # println(obs, " ", done, " ", info, " ", step)
-        r_tot += rew
-        step += 1
-    end
-
-    println(r_tot)
-
-end
+# rng = MersenneTwister(0)
+#
+# env = POMDPEnvironment(TestPOMDP(1,))
+#
+#
+#
+# for i=1:100
+#     nsteps = 10
+#     done = false
+#     r_tot = 0.0
+#     step = 0
+#
+#
+#     obs = reset(env)
+#     # println("start at t=0 obs $obs")
+#     # println("Start state $(env.state)")
+#     while !done && step <= nsteps
+#         a = sample_action(env)
+#         obs, rew, done, info = step!(env, a)
+#         # println("state ", env.state, " action ", a)
+#         # println("Reward ", rew)
+#         # println(obs, " ", done, " ", info, " ", step)
+#         r_tot += rew
+#         step += 1
+#     end
+#
+#     println(r_tot)
+#
+# end
