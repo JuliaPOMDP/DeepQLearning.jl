@@ -17,6 +17,19 @@ export DeepQLearningSolver,
        get_train_vars_by_name,
 
        # replay buffer
+       DQExperience,
+       ReplayBuffer,
+       is_full,
+       max_size,
+       add_exp!,
+       populate_replay_buffer!,
+
+       # training
+       TrainGraph,
+       DQNPolicy,
+       
+
+
 
 
 include("tf_helpers.jl")
