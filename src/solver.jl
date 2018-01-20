@@ -1,35 +1,5 @@
 
-
-
-
-"""
-    Deep Q Learning Solver type
-"""
-@with_kw mutable struct DeepQLearningSolver
-    arch::QNetworkArchitecture = QNetworkArchitecture(conv=[], fc=[])
-    lr::Float64 = 0.005
-    max_steps::Int64 = 1000
-    target_update_freq::Int64 = 500
-    batch_size::Int64 = 32
-    train_freq::Int64  = 4
-    log_freq::Int64 = 100
-    eval_freq::Int64 = 100
-    num_ep_eval::Int64 = 100
-    eps_fraction::Float64 = 0.5
-    eps_end::Float64 = 0.01
-    buffer_size::Int64 = 1000
-    max_episode_length::Int64 = 100
-    train_start::Int64 = 200
-    grad_clip::Bool = true
-    clip_val::Float64 = 10.0
-    rng::AbstractRNG = MersenneTwister(0)
-    verbose::Bool = true
-end
-
-
-
-
-function solve(solver::DeepQLearningSolver, problem::Union{MDP, POMDP})
+function POMDPs.solve(solver::DeepQLearningSolver, problem::Union{MDP, POMDP})
     if isa(problem, POMDP) # TODO use multiple dispatch or same as in deepRL.jl?
         env = POMDPEnvironment(problem, rng=solver.rng)
     else
@@ -124,4 +94,37 @@ function dqn_train(solver::DeepQLearningSolver, env::Union{MDPEnvironment, POMDP
         end
     end
     return logg_mean, logg_loss , logg_grad, episode_rewards, scores_eval
+end
+
+"""
+Evaluate a Q network
+"""
+function eval_q(graph::TrainGraph,
+                env::Union{MDPEnvironment, POMDPEnvironment};
+                n_eval::Int64=100,
+                max_episode_length::Int64=100)
+    # Evaluation
+    avg_r = 0
+    for i=1:n_eval
+        done = false
+        r_tot = 0.0
+        step = 0
+        obs = reset(env)
+        # println("start at t=0 obs $obs")
+        # println("Start state $(env.state)")
+        while !done && step <= max_episode_length
+            action =  get_action(graph, env, obs)
+            # println(action)
+            obs, rew, done, info = step!(env, action)
+            # println("state ", env.state, " action ", a)
+            # println("Reward ", rew)
+            # println(obs, " ", done, " ", info, " ", step)
+            r_tot += rew
+            step += 1
+        end
+        avg_r += r_tot
+        # println(r_tot)
+
+    end
+    return  avg_r /= n_eval
 end

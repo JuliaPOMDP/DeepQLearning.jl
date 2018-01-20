@@ -1,12 +1,4 @@
 
-"""
-Specify the Q network architecture
-[(int, (int,int), int)]
-"""
-@with_kw mutable struct QNetworkArchitecture
-    fc::Vector{Int64} = Vector{Int64}[]
-    conv::Vector{Tuple{Int64, Vector{Int64}, Int64}} = Vector{Tuple{Int64, Tuple{Int64, Int64}, Int64}}[]
-end
 
 """
 Build a q network given an architecture

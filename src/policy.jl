@@ -14,6 +14,15 @@ function get_action(graph::TrainGraph, env::Union{MDPEnvironment, POMDPEnvironme
     return actions(env)[ai] # inefficient
 end
 
+function get_action(policy::DQNPolicy, o::Array{Float64})
+    # cannot take a batch of observations
+    o = reshape(o, (1, size(o)...))
+    q_val = run(policy.sess, policy.q, Dict(policy.s => o))
+    ai = indmax(q_val)
+    return actions(policy.env)[ai]
+end
+
+
 function get_value(sess, q, o)
     o = reshape(o, (1, obs_dim...))
     q_val = run(sess, q, Dict(s => o) )
@@ -25,35 +34,12 @@ function get_value_batch(sess, q, o)
     return q_val
 end
 
-"""
-Evaluate a Q network
-"""
-function eval_q(graph::TrainGraph,
-                env::Union{MDPEnvironment, POMDPEnvironment};
-                n_eval::Int64=100,
-                max_episode_length::Int64=100)
-    # Evaluation
-    avg_r = 0
-    for i=1:n_eval
-        done = false
-        r_tot = 0.0
-        step = 0
-        obs = reset(env)
-        # println("start at t=0 obs $obs")
-        # println("Start state $(env.state)")
-        while !done && step <= max_episode_length
-            action =  get_action(graph, env, obs)
-            # println(action)
-            obs, rew, done, info = step!(env, action)
-            # println("state ", env.state, " action ", a)
-            # println("Reward ", rew)
-            # println(obs, " ", done, " ", info, " ", step)
-            r_tot += rew
-            step += 1
-        end
-        avg_r += r_tot
-        # println(r_tot)
-
+function POMDPs.action(policy::DQNPolicy, s::S) where S
+    obs = nothing
+    if isa(policy.env.problem, POMDP)
+        obs = convert_o(Vector{Float64}, s, policy.env.problem)
+    else
+        obs = convert_s(Vector{Float64}, s, policy.env.problem)
     end
-    return  avg_r /= n_eval
+    return get_action(policy, obs)
 end

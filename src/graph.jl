@@ -20,13 +20,11 @@ The shape is inferred from the environment
 function build_placeholders(env::Union{POMDPEnvironment, MDPEnvironment})
     obs_dim = obs_dimensions(env)
     n_outs = n_actions(env)
-    @tf begin
-        s = placeholder(Float32, shape=[-1, obs_dim...])
-        a = placeholder(Int32, shape=[-1])
-        sp = placeholder(Float32, shape=[-1, obs_dim...])
-        r = placeholder(Float32, shape=[-1])
-        done_mask = placeholder(Bool, shape=[-1])
-    end
+    s = placeholder(Float32, shape=[-1, obs_dim...])
+    a = placeholder(Int32, shape=[-1])
+    sp = placeholder(Float32, shape=[-1, obs_dim...])
+    r = placeholder(Float32, shape=[-1])
+    done_mask = placeholder(Bool, shape=[-1])
     return s, a, sp, r, done_mask
 end
 
