@@ -33,6 +33,8 @@ export DeepQLearningSolver,
        save,
        restore
 
+include("tf_helpers.jl")
+include("experience_replay.jl")
 
 """
 Specify the Q network architecture
@@ -67,9 +69,6 @@ end
     verbose::Bool = true
 end
 
-
-include("tf_helpers.jl")
-include("experience_replay.jl")
 include("graph.jl")
 include("policy.jl")
 include("q_network.jl")
