@@ -28,7 +28,10 @@ export DeepQLearningSolver,
        # training
        TrainGraph,
        DQNPolicy,
-
+       action,
+       solve,
+       save,
+       restore
 
 
 """
