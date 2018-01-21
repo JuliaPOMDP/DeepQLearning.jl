@@ -16,7 +16,7 @@ Implementation of the DeepQLearning algorithm in Julia using TensorFlow.jl and P
 
 ## Work in progress
 
-- saving and restoring models 
+- saving and restoring models
 - Prioritized replay
 - dueling
-- double Q
+- double Q : implemented but needs to be tested

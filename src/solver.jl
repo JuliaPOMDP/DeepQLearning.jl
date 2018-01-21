@@ -8,20 +8,27 @@ function POMDPs.solve(solver::DeepQLearningSolver, problem::Union{MDP, POMDP})
     #init session and build graph Create a TrainGraph object with all the tensors
     train_graph = build_graph(solver, env)
 
-    # init and popuplate replay buffer
-    replay = ReplayBuffer(env, solver.buffer_size, solver.batch_size)
+    # init and populate replay buffer
+    if solver.prioritized_replay
+        replay = PrioritizedReplayBuffer(env, solver.buffer_size, solver.batch_size)
+    else
+        replay = ReplayBuffer(env, solver.buffer_size, solver.batch_size)
+    end
     populate_replay_buffer!(replay, env, max_pop=solver.train_start)
-
     # init variables
     run(train_graph.sess, global_variables_initializer())
-
+    #TODO save the training log somewhere
     avg_r, loss, grad, rewards, eval_r = dqn_train(solver, env, train_graph, replay)
-    return avg_r, loss, grad, rewards, eval_r, policy
+    policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
+    return policy, eval_r, avg_r, loss, grad, train_graph
 end
 
 
 
-function dqn_train(solver::DeepQLearningSolver, env::Union{MDPEnvironment, POMDPEnvironment}, graph::TrainGraph, replay::ReplayBuffer)
+function dqn_train(solver::DeepQLearningSolver,
+                   env::Union{MDPEnvironment, POMDPEnvironment},
+                   graph::TrainGraph,
+                   replay::Union{ReplayBuffer, PrioritizedReplayBuffer})
     obs = reset(env)
     done = false
     step = 0
@@ -33,6 +40,7 @@ function dqn_train(solver::DeepQLearningSolver, env::Union{MDPEnvironment, POMDP
     logg_loss = Float64[]
     logg_grad = Float64[]
     eps = 1.0
+    weights = ones(solver.batch_size)
     for t=1:solver.max_steps
         if rand(solver.rng) > eps
             action = get_action(graph, env, obs)
@@ -62,13 +70,18 @@ function dqn_train(solver::DeepQLearningSolver, env::Union{MDPEnvironment, POMDP
         num_episodes = length(episode_rewards)
         avg100_reward = mean(episode_rewards[max(1, length(episode_rewards)-101):end])
         if t%solver.train_freq == 0
-            s_batch, a_batch, r_batch, sp_batch, done_batch = sample(replay)
+            if solver.prioritized_replay
+                s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
+            else
+                s_batch, a_batch, r_batch, sp_batch, done_batch = sample(replay)
+            end
             feed_dict = Dict(graph.s => s_batch,
                              graph.a => a_batch,
                              graph.sp => sp_batch,
                              graph.r => r_batch,
-                             graph.done_mask => done_batch)
-            loss_val, grad_val, _ = run(graph.sess,[graph.loss, graph.grad_norm, graph.train_op],
+                             graph.done_mask => done_batch,
+                             graph.importance_weights => weights)
+            loss_val, td_errors, grad_val, _ = run(graph.sess,[graph.loss, graph.td_errors, graph.grad_norm, graph.train_op],
                                         feed_dict)
 
             push!(logg_loss, loss_val)

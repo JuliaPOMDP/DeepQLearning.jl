@@ -64,18 +64,18 @@ end
     uses Xavier initialization
     dense(input::Tensor, hidden_units; activation=identity, scope="")
 """
-function dense(input::Tensor, hidden_units; activation=identity, scope="fc")
+function dense(input::Tensor, hidden_units; activation=identity, scope="fc", reuse=false)
     input_shape = get(get_shape(input).dims[end])
     weight_shape = (input_shape, hidden_units)
     var = 2/(input_shape + hidden_units) # Xavier initialization
-    fc_W = variable_scope(scope, initializer= Normal(0.0, var)) do
+    fc_W = variable_scope(scope, initializer= Normal(0.0, var),  reuse=reuse) do
         get_variable("weight", [weight_shape...], Float32)
     end
-    fc_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.)) do
+    fc_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.),  reuse=reuse) do
         get_variable("bias", [hidden_units], Float32)
     end
-    a = variable_scope(scope) do
-        activation(input*fc_W + fc_b)
+    a = variable_scope(scope,  reuse=reuse) do
+        a = activation(input*fc_W + fc_b)
     end
     return a
 end
@@ -92,18 +92,18 @@ end
 
 """
 function conv2d(inputs::Tensor, num_filters::Int64, kernel_size::Vector{Int64};
-                activation=identity, stride::Int64=1, padding::String="SAME", scope="conv")
+                activation=identity, stride::Int64=1, padding::String="SAME", scope="conv", reuse::Bool=false)
     # assume inputs is of shape batch, height, width, channels
     input_channels = get(get_shape(inputs).dims[end])
     weight_shape = (kernel_size[1], kernel_size[2], input_channels, num_filters)
     var = 1/(kernel_size[1]*kernel_size[2]*input_channels) # Xavier initialization
-    conv_W =  variable_scope(scope, initializer=Normal(0.0, var)) do
+    conv_W =  variable_scope(scope, initializer=Normal(0.0, var), reuse=reuse) do
         get_variable("weight", [weight_shape...], Float32)
     end
-    conv_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.)) do
+    conv_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.),  reuse=reuse) do
         get_variable("bias", [num_filters], Float32)
     end
-    a = variable_scope(scope) do
+    a = variable_scope(scope,  reuse=reuse) do
         z = nn.conv2d(inputs, conv_W, Int64[1, stride, stride, 1], padding) + conv_b
         a = activation(z)
         a = cast(a, Float32)
@@ -125,12 +125,18 @@ end
 """
     Build a multi-layer perceptron (mlp) model given the list of nodes in each layer and the input tensor
 """
-function mlp(input::Tensor, hiddens::Vector{Int64}, num_output::Int64; final_activation=identity, scope="mlp")
+function mlp(input::Tensor,
+            hiddens::Vector{Int64},
+            num_output::Int64;
+            final_activation=identity,
+            scope="mlp",
+            reuse = false
+            )
     a = flatten(input, batch_dim=1)
     for (i,h) in enumerate(hiddens)
-        a = dense(a, h, activation=nn.relu, scope=scope*"/fc_$i")
+        a = dense(a, h, activation=nn.relu, scope=scope*"/fc_$i", reuse=reuse)
     end
-    a = dense(a, num_output, activation=final_activation, scope=scope*"/fc_out")
+    a = dense(a, num_output, activation=final_activation, scope=scope*"/fc_out", reuse=reuse)
     return a
 end
 
@@ -145,19 +151,41 @@ end
 
 """
 
-function cnn_to_mlp(inputs, convs, hiddens, num_output; final_activation=identity, scope="conv2mlp")
+function cnn_to_mlp(inputs, convs, hiddens, num_output;
+    final_activation=identity, scope="conv2mlp", reuse=false, dueling=false)
     out = inputs
     for (i,(nfilters, kernel_size, stride)) in enumerate(convs)
         out = conv2d(out, nfilters, kernel_size,
-                     activation=nn.relu, stride=stride, scope=scope*"/conv_$i")
+                     activation=nn.relu, stride=stride, scope=scope*"/conv_$i", reuse=reuse)
     end
-    out = variable_scope(scope) do
+    out = variable_scope(scope,  reuse=reuse) do
         flatten(out, batch_dim=1)
     end
-    for (i,h) in enumerate(hiddens)
-        out = dense(out, h, activation=nn.relu, scope=scope*"/fc_$i")
+    if dueling
+        state_val_scope = scope*"/state_value"
+        state_out = out
+        for (i,h) in enumerate(hiddens)
+            state_out = dense(state_out, h, activation=nn.relu, scope=state_val_scope*"/fc_$i", reuse=reuse)
+        end
+        state_out = dense(state_out, 1, activation=final_activation, scope=state_val_scope*"/fc_out", reuse=reuse)
+
+        action_val_scope = scope*"/action_value"
+        action_out = out
+        for (i,h) in enumerate(hiddens)
+            action_out = dense(action_out, h, activation=nn.relu, scope=action_val_scope*"/fc_$i", reuse=reuse)
+        end
+        action_out = dense(action_out, num_output, activation=final_activation, scope=action_val_scope*"/fc_out", reuse=reuse)
+
+        actions_mean = Ops.expand_dims(mean(action_out, 2),2) # shape bs x 1
+        println(get_shape(actions_mean))
+        actions_scaled = action_out - actions_mean # broadcast bs x n_actions - bs x 1
+        out = state_out + actions_scaled
+    else
+        for (i,h) in enumerate(hiddens)
+            out = dense(out, h, activation=nn.relu, scope=scope*"/fc_$i", reuse=reuse)
+        end
+        out = dense(out, num_output, activation=final_activation, scope=scope*"/fc_out", reuse=reuse)
     end
-    out = dense(out, num_output, activation=final_activation, scope=scope*"/fc_out")
     return out
 end
 

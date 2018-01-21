@@ -7,7 +7,6 @@ struct DQExperience
 end
 
 
-
 mutable struct ReplayBuffer
     max_size::Int64 # maximum size of the buffer
     batch_size::Int64

@@ -24,6 +24,7 @@ export DeepQLearningSolver,
        max_size,
        add_exp!,
        populate_replay_buffer!,
+       update_priorities!,
 
        # training
        TrainGraph,
@@ -34,7 +35,7 @@ export DeepQLearningSolver,
        restore
 
 include("tf_helpers.jl")
-include("experience_replay.jl")
+
 
 """
 Specify the Q network architecture
@@ -60,6 +61,12 @@ end
     num_ep_eval::Int64 = 100
     eps_fraction::Float64 = 0.5
     eps_end::Float64 = 0.01
+    double_q::Bool = true
+    dueling::Bool = true
+    prioritized_replay::Bool = true
+    prioritized_replay_alpha::Float64 = 0.6
+    prioritized_replay_epsilon::Float64 = 1e-6
+    prioritized_replay_beta::Float64 = 0.4
     buffer_size::Int64 = 1000
     max_episode_length::Int64 = 100
     train_start::Int64 = 200
@@ -69,6 +76,8 @@ end
     verbose::Bool = true
 end
 
+include("experience_replay.jl")
+include("prioritized_experience_replay.jl")
 include("graph.jl")
 include("policy.jl")
 include("q_network.jl")

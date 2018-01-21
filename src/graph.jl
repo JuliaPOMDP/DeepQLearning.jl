@@ -25,7 +25,48 @@ function build_placeholders(env::Union{POMDPEnvironment, MDPEnvironment})
     sp = placeholder(Float32, shape=[-1, obs_dim...])
     r = placeholder(Float32, shape=[-1])
     done_mask = placeholder(Bool, shape=[-1])
-    return s, a, sp, r, done_mask
+    w = placeholder(Float32, shape=[-1])
+    return s, a, sp, r, done_mask, w
+end
+
+
+"""
+Build the loss operation
+relies on the Bellman equation
+"""
+function build_loss(env::Union{POMDPEnvironment, MDPEnvironment}, q::Tensor, target_q::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
+    loss, td_errors = nothing, nothing
+    variable_scope("loss") do
+        term = cast(done_mask, Float32)
+        A = one_hot(a, n_actions(env))
+        q_sa = sum(A.*q, 2)
+        q_samp = r + (1 - term).*discount(env.problem).*maximum(target_q, 2)
+        td_errors = q_sa - q_samp
+        errors = huber_loss(td_errors)
+        loss = mean(importance_weights.*errors)
+    end
+    return loss, td_errors
+end
+
+"""
+Build the loss operation with double_q
+relies on the Bellman equation
+"""
+function build_doubleq_loss(env::Union{POMDPEnvironment, MDPEnvironment}, q::Tensor, target_q::Tensor,qp::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
+    loss, td_errors = nothing, nothing
+    variable_scope("loss") do
+        term = cast(done_mask, Float32)
+        A = one_hot(a, n_actions(env))
+        q_sa = sum(A.*q, 2)
+        best_a = indmax(qp, 2)
+        best_A = one_hot(best_a, n_actions(env))
+        target_q_best = sum(best_A.*target_q, 2)
+        q_samp = r + (1 - term).*discount(env.problem).*target_q_best
+        td_errors = q_sa - q_samp
+        errors = huber_loss(td_errors)
+        loss = mean(importance_weights.*errors)
+    end
+    return loss, td_errors
 end
 
 
@@ -37,23 +78,6 @@ function huber_loss(x, δ::Float64=1.0)
     return mask.*0.5.*x.^2 + (1-mask).*δ.*(abs(x) - 0.5*δ)
 end
 
-"""
-Build the loss operation
-relies on the Bellman equation
-"""
-function build_loss(env::Union{POMDPEnvironment, MDPEnvironment}, q::Tensor, target_q::Tensor, a::Tensor, r::Tensor, done_mask::Tensor)
-    loss, td_errors = nothing, nothing
-    variable_scope("loss") do
-        term = cast(done_mask, Float32)
-        A = one_hot(a, n_actions(env))
-        q_sa = sum(A.*q, 2)
-        q_samp = r + (1 - term).*discount(env.problem).*maximum(target_q, 2)
-        td_errors = q_sa - q_samp
-        errors = huber_loss(td_errors)
-        loss = mean(errors)
-    end
-    return loss, td_errors
-end
 
 """
 Build train operation
@@ -99,7 +123,9 @@ mutable struct TrainGraph
     sp::Tensor
     r::Tensor
     done_mask::Tensor
+    importance_weights::Tensor
     q::Tensor
+    qp::Tensor
     target_q::Tensor
     loss::Tensor
     td_errors::Tensor
@@ -110,14 +136,19 @@ end
 
 function build_graph(solver::DeepQLearningSolver, env::Union{MDPEnvironment, POMDPEnvironment})
     sess = init_session()
-    s, a, sp, r, done_mask = build_placeholders(env)
-    q = build_q(s, solver.arch, env, Q_SCOPE)
-    target_q = build_q(sp, solver.arch, env, TARGET_Q_SCOPE)
-    loss, td_errors = build_loss(env, q, target_q, a, r, done_mask)
+    s, a, sp, r, done_mask, importance_weights = build_placeholders(env)
+    q = build_q(s, solver.arch, env, scope=Q_SCOPE, dueling=solver.dueling)
+    qp = build_q(sp, solver.arch, env, scope=Q_SCOPE, reuse=true, dueling=solver.dueling)
+    target_q = build_q(sp, solver.arch, env, scope=TARGET_Q_SCOPE, dueling=solver.dueling)
+    if solver.double_q
+        loss, td_errors = build_doubleq_loss(env, q, target_q, qp, a, r, done_mask,  importance_weights)
+    else
+        loss, td_errors = build_loss(env, q, target_q, a, r, done_mask, importance_weights)
+    end
     train_op, grad_norm = build_train_op(loss,
                                          lr=solver.lr,
                                          grad_clip=solver.grad_clip,
                                          clip_val=solver.clip_val)
     update_op = build_update_target_op("active_q", "target_q")
-    return TrainGraph(sess, s, a, sp, r, done_mask, q, target_q, loss, td_errors, train_op, grad_norm, update_op)
+    return TrainGraph(sess, s, a, sp, r, done_mask, importance_weights, q, qp, target_q, loss, td_errors, train_op, grad_norm, update_op)
 end
