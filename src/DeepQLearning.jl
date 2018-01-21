@@ -16,10 +16,12 @@ export DeepQLearningSolver,
        mlp,
        cnn_to_mlp,
        get_train_vars_by_name,
+       init_session,
 
        # replay buffer
        DQExperience,
        ReplayBuffer,
+       PrioritizedReplayBuffer,
        is_full,
        max_size,
        add_exp!,

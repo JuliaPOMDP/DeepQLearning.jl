@@ -4,16 +4,6 @@ const Q_SCOPE = "active_q"
 const TARGET_Q_SCOPE = "target_q"
 
 """
-Reset the graph and open a new session
-"""
-function init_session()
-    g = Graph()
-    tf.set_def_graph(g)
-    sess = Session(g)
-    return sess
-end
-
-"""
 Create placeholders for DQN training: s, a, sp, r, done
 The shape is inferred from the environment
 """

@@ -93,8 +93,14 @@ function dqn_train(solver::DeepQLearningSolver,
         end
 
         if t%solver.eval_freq == 0
-            push!(scores_eval, eval_q(graph, env, n_eval=solver.num_ep_eval,
+            @time push!(scores_eval, eval_q(graph, env, n_eval=solver.num_ep_eval,
                                                   max_episode_length=solver.max_episode_length))
+            # @time score = fast_eval(graph, env, n_eval=solver.num_ep_eval,
+            #                               max_steps=solver.max_episode_length,
+            #                               rng = solver.rng)
+            # eval_policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
+            # @time score = fast_eval(eval_policy, env.problem, sim, n_eval=solver.num_ep_eval)
+            # push!(scores_eval, score)
         end
 
         if t%solver.log_freq == 0
@@ -108,6 +114,7 @@ function dqn_train(solver::DeepQLearningSolver,
     end
     return logg_mean, logg_loss , logg_grad, episode_rewards, scores_eval
 end
+
 
 """
 Evaluate a Q network
@@ -141,3 +148,63 @@ function eval_q(graph::TrainGraph,
     end
     return  avg_r /= n_eval
 end
+
+
+
+# function fast_eval(policy::DQNPolicy, mdp, sim; n_eval=100)
+#     r_avg = 0.
+#     for i=1:n_eval
+#         r_avg += simulate(sim, mdp, policy)
+#     end
+#     r_avg /= n_eval
+#     return r_avg
+# end
+
+# """
+#     Evaluate the policy with several simulations
+# """
+# function fast_eval(graph::TrainGraph,
+#                    env::Union{POMDPEnvironment, MDPEnvironment};
+#                    n_eval::Int64 = 100,
+#                    max_steps::Int64 = 100,
+#                    rng::AbstractRNG = MersenneTwister(0))
+#     avg_r = 0.
+#     for i=1:n_eval
+#         avg_r += simulate(graph, env, max_steps=max_steps, rng=rng)
+#     end
+#     avg_r /= n_eval
+#     return avg_r
+# end
+#
+# """
+#     A simulator that just returns the reward
+# """
+# function POMDPs.simulate(graph::TrainGraph,
+#                   env::Union{MDPEnvironment, POMDPEnvironment};
+#                   max_steps::Int64=100,
+#                   rng::AbstractRNG = MersenneTwister(0))
+#     s = reset(env)
+#
+#     disc = 1.0
+#     r_total = 0.0
+#     step = 1
+#     done = false
+#
+#     while !done && step <= max_steps
+#         action =  get_action(graph, env, s)
+#
+#         sp, r, done, info = step!(env, action)
+#
+#         r_total += disc*r
+#
+#         s = sp
+#
+#         disc *= discount(env.problem)
+#         step += 1
+#   end
+#
+#   return r_total
+# end
+#
+#
+#
