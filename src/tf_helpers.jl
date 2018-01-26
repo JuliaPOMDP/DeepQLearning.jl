@@ -2,6 +2,11 @@
 # Helpers function for Tensorflow.jl to make building models easier
 #
 
+
+import tf: tanh
+import tf.nn: sigmoid, zero_state
+import tf.nn.rnn_cell: get_input_dim, LSTMStateTuple
+
 ########### General Helpers ###################################
 
 """
@@ -12,6 +17,19 @@ function init_session()
     tf.set_def_graph(g)
     sess = Session(g)
     return sess
+end
+
+
+"""
+returns a list of trainable variables whose name contains name
+"""
+function get_train_vars_by_name(name::String)
+    return [var for var in get_def_graph().collections[:TrainableVariables]
+            if contains(tf.get_name(var.var_node), name)]
+end
+
+function Base.ndims(A::AbstractTensor)
+    length(get_shape(A).dims)
 end
 
 
@@ -83,10 +101,16 @@ function dense(input::Tensor, hidden_units; activation=identity, scope="fc", reu
         get_variable("bias", [hidden_units], Float32)
     end
     a = variable_scope(scope,  reuse=reuse) do
-        a = activation(input*fc_W + fc_b)
+        if activation == identity #XXX hack because identity returns a tensor of shape unknown
+            a = input*fc_W + fc_b
+        else
+            a = activation(input*fc_W + fc_b)
+        end
+        a
     end
     return a
 end
+
 
 """
     Build a 2d convolutional layer
@@ -192,19 +216,111 @@ function cnn_to_mlp(inputs, convs, hiddens, num_output;
         for (i,h) in enumerate(hiddens)
             out = dense(out, h, activation=nn.relu, scope=scope*"/fc_$i", reuse=reuse)
         end
-        out = dense(out, num_output, activation=final_activation, scope=scope*"/fc_out", reuse=reuse)
+        if num_output > 0
+            out = dense(out, num_output, activation=final_activation, scope=scope*"/fc_out", reuse=reuse)
+        end
     end
     return out
 end
 
 
-"""
-returns a list of trainable variables whose name contains name
-"""
-function get_train_vars_by_name(name::String)
-    return [var for var in get_def_graph().collections[:TrainableVariables]
-            if contains(tf.get_name(var.var_node), name)]
+# Modify the methods for LSTM and dynamic_rnn to reuse weights.
+# this might break if there are changes in tensorflow.jl , maybe it should be a PR
+
+function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false)
+    N = get_input_dim(input, input_dim) + cell.hidden_size
+    T = eltype(state)
+    input = Tensor(input)
+    X = [input state.h]
+    var = 2/N
+    local Wi, Wf, Wo, Wg
+    tf.variable_scope("Weights", initializer=Normal(0.0, var), reuse=reuse) do
+        Wi = get_variable("Wi", [N, cell.hidden_size], T)
+        Wf = get_variable("Wf", [N, cell.hidden_size], T)
+        Wo = get_variable("Wo", [N, cell.hidden_size], T)
+        Wg = get_variable("Wg", [N, cell.hidden_size], T)
+    end
+
+    local Bi, Bf, Bo, Bg
+    tf.variable_scope("Bias", initializer=tf.ConstantInitializer(0.0), reuse=reuse) do
+        Bi = get_variable("Bi", [cell.hidden_size], T)
+        Bf = get_variable("Bf", [cell.hidden_size], T)
+        Bo = get_variable("Bo", [cell.hidden_size], T)
+        Bg = get_variable("Bg", [cell.hidden_size], T)
+    end
+
+    # TODO make this all one multiply
+    I = sigmoid(X*Wi + Bi)
+    F = sigmoid(X*Wf + Bf)
+    O = sigmoid(X*Wo + Bo)
+    G = tanh(X*Wg + Bg)
+    C = state.c.*F + G.*I
+    S = tanh(C).*O
+
+    return (S, LSTMStateTuple(C, S))
 end
+
+# modify the function from tensorflow.jl to support dynamic shapes and returns the output at all time steps
+function dynamic_rnn(cell::nn.rnn_cell.LSTMCell, inputs, sequence_length=nothing;input_dim=nothing, initial_state=nothing, dtype=nothing, parallel_iterations=nothing, swap_memory=false, time_major=false, scope="RNN", reuse=false)
+    if input_dim === nothing
+        input_dim = tf.get_shape(inputs, 3)
+    end
+    #TODO Make this all work with non-3D inputs
+
+    if time_major
+        # TODO Do this in a more efficient way
+        inputs=permutedims(inputs, [2,1,3])
+    end
+
+    num_steps = convert(tf.Tensor{Int64}, tf.shape(inputs)[2])
+    if sequence_length === nothing
+        # Works around a bug in upstream TensorFlow's while-loop
+        # gradient calculation
+        sequence_length = num_steps
+    end
+
+
+    initial_data = inputs[:,1,:]
+    if initial_state === nothing
+        initial_state = zero_state(cell, initial_data, dtype)
+    end
+    # By **MAGIC** these values end up in `while_output` even when num_steps=1
+
+    # Calculate first output -- we can't trivially default it,
+    # because that would require batch_size to be known statically,
+    # and not having a fixed batch_size is pretty nice.
+    output, state = cell(initial_data, initial_state, input_dim, reuse=reuse)
+    # By **MAGIC** these values end up in `while_output` eve when num_steps=1
+    # and the while-loop should not logically run
+    all_time_output = expand_dims(output, 2) # add time dimension should be bsx1xstate_dim
+    time_step = tf.constant(2) #skip the completed first step
+    while_output = @tf while time_step ≤ num_steps
+        data = inputs[:, time_step, :]
+        local new_state
+        new_output = output
+        # new_all_time_output = all_time_output
+
+        tf.variable_scope(scope) do
+            new_output, new_state = cell(data, state, input_dim)
+            # Only update output and state for rows that are not yet passed their ends
+            have_passed_end = sequence_length .< time_step
+            f(old_arg, new_arg) = tf.select(have_passed_end, old_arg, new_arg)
+            new_output = tf.struct_map(f, output, new_output)
+            new_state = tf.struct_map(f, state, new_state)
+            all_time_output = hcat(all_time_output, expand_dims(new_output, 2))
+        end
+
+        [time_step=>time_step+1, state=>new_state, output=>new_output, all_time_output=>all_time_output]
+    end
+
+    final_state = while_output[2]
+    final_output = while_output[3]
+    final_all_time_output = while_output[4]
+    final_output, final_state, final_all_time_output
+end
+
+
+
 
 # functions from tensorflow.jl tutorial, no control over the initialization
 function weight_variable(shape)
