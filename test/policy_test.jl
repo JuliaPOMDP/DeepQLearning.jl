@@ -11,11 +11,11 @@ env = POMDPEnvironment(pomdp)
 mdp = GridWorld()
 env = MDPEnvironment(mdp)
 sess= init_session()
-solver = DeepQLearningSolver(max_steps=100000, lr=0.001, eval_freq=1000,num_ep_eval=100,
+solver = DeepQLearningSolver(max_steps=10000, lr=0.001, eval_freq=1000,num_ep_eval=100,
                             arch = QNetworkArchitecture(conv=[], fc=[64,32]),
                             double_q = false, dueling=true)
 
-policy, scores_eval, logg_mean, logg_loss, logg_grad, train_graph = solve(solver, mdp)
+policy = solve(solver, mdp)
 
 
 

@@ -1,5 +1,4 @@
 using Base.Test
-#TODO test fatten
 
 function test_flatten_multi_dims(x::Array{Float64})
     for dim=1:3
@@ -24,3 +23,5 @@ x3 = randn(rand(1:100),rand(1:100),rand(1:100),rand(1:100))
 @test test_flatten_multi_dims(x1)
 @test test_flatten_multi_dims(x2)
 @test test_flatten_multi_dims(x3)
+
+#TODO implement tests for all the helpers, use logistic_reg.jl and conv_net.jl to test the model builders
