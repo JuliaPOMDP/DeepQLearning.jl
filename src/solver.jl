@@ -20,7 +20,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, problem::Union{MDP, POMDP})
     #TODO save the training log somewhere
     avg_r, loss, grad, rewards, eval_r = dqn_train(solver, env, train_graph, replay)
     policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
-    return policy, eval_r, avg_r, loss, grad, train_graph
+    return policy
 end
 
 
