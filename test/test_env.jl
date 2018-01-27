@@ -48,7 +48,7 @@ end
 
 function POMDPs.convert_s(t::Type{Vector{Float64}},s::Tuple{Vector{Int64}, Int64}, mdp::TestMDP)
     obs = zeros(mdp.shape..., mdp.stack)
-    for i=1:pomdp.stack
+    for i=1:mdp.stack
         obs[Base.setindex(indices(obs), i, ndims(obs))...] = observations(mdp)[s[1][i]]
     end
     return obs./255.0
