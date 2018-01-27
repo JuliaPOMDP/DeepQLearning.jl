@@ -6,8 +6,8 @@
 
 [![codecov.io](http://codecov.io/github/MaximeBouton/DeepQLearning.jl/coverage.svg?branch=master)](http://codecov.io/github/MaximeBouton/DeepQLearning.jl?branch=master)
 
-Implementation of the DeepQLearning algorithm in Julia using TensorFlow.jl and POMDPs.jl.
-This package provide an implementation of the Deep Q learning algorithm. For more information see https://arxiv.org/pdf/1312.5602.pdf
+This package provides an implementation of the Deep Q learning algorithm for solving MDPs. For more information see https://arxiv.org/pdf/1312.5602.pdf.
+It uses POMDPs.jl and TensorFlow.jl
 
 It supports the following innovations:
 - Target network
