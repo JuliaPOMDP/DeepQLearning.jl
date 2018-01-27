@@ -18,7 +18,7 @@ It supports the following innovations:
 ## Installation
 
 ```Julia
-Pkg.clone()
+Pkg.clone("https://github.com/JuliaPOMDP/DeepQLearning.jl")
 ```
 
 ## Usage
