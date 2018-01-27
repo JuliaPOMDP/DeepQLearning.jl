@@ -2,10 +2,9 @@
 # Helpers function for Tensorflow.jl to make building models easier
 #
 
-
-import tf: tanh
-import tf.nn: sigmoid, zero_state
-import tf.nn.rnn_cell: get_input_dim, LSTMStateTuple
+import TensorFlow: tanh
+import TensorFlow.nn: sigmoid, zero_state
+import TensorFlow.nn.rnn_cell: get_input_dim, LSTMStateTuple
 
 ########### General Helpers ###################################
 
