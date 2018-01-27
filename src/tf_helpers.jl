@@ -3,9 +3,9 @@
 #
 
 
-import tf: tanh
-import tf.nn: sigmoid, zero_state
-import tf.nn.rnn_cell: get_input_dim, LSTMStateTuple
+import TensorFlow: tanh
+import TensorFlow.nn: sigmoid, zero_state
+import TensorFlow.nn.rnn_cell: get_input_dim, LSTMStateTuple
 
 ########### General Helpers ###################################
 
@@ -227,14 +227,14 @@ end
 # Modify the methods for LSTM and dynamic_rnn to reuse weights.
 # this might break if there are changes in tensorflow.jl , maybe it should be a PR
 
-function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false)
+function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false, scope="")
     N = get_input_dim(input, input_dim) + cell.hidden_size
     T = eltype(state)
     input = Tensor(input)
     X = [input state.h]
     var = 2/N
     local Wi, Wf, Wo, Wg
-    tf.variable_scope("Weights", initializer=Normal(0.0, var), reuse=reuse) do
+    tf.variable_scope(scope*"/Weights", initializer=Normal(0.0, var), reuse=reuse) do
         Wi = get_variable("Wi", [N, cell.hidden_size], T)
         Wf = get_variable("Wf", [N, cell.hidden_size], T)
         Wo = get_variable("Wo", [N, cell.hidden_size], T)
@@ -242,7 +242,7 @@ function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false)
     end
 
     local Bi, Bf, Bo, Bg
-    tf.variable_scope("Bias", initializer=tf.ConstantInitializer(0.0), reuse=reuse) do
+    tf.variable_scope(scope*"/Bias", initializer=tf.ConstantInitializer(0.0), reuse=reuse) do
         Bi = get_variable("Bi", [cell.hidden_size], T)
         Bf = get_variable("Bf", [cell.hidden_size], T)
         Bo = get_variable("Bo", [cell.hidden_size], T)
@@ -261,7 +261,7 @@ function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false)
 end
 
 # modify the function from tensorflow.jl to support dynamic shapes and returns the output at all time steps
-function dynamic_rnn(cell::nn.rnn_cell.LSTMCell, inputs, sequence_length=nothing;input_dim=nothing, initial_state=nothing, dtype=nothing, parallel_iterations=nothing, swap_memory=false, time_major=false, scope="RNN", reuse=false)
+function dynamic_rnn(cell::nn.rnn_cell.LSTMCell, inputs, sequence_length=nothing;input_dim=nothing, initial_state=nothing, dtype=nothing, parallel_iterations=nothing, swap_memory=false, time_major=false, scope="", reuse=false)
     if input_dim === nothing
         input_dim = tf.get_shape(inputs, 3)
     end
@@ -289,7 +289,7 @@ function dynamic_rnn(cell::nn.rnn_cell.LSTMCell, inputs, sequence_length=nothing
     # Calculate first output -- we can't trivially default it,
     # because that would require batch_size to be known statically,
     # and not having a fixed batch_size is pretty nice.
-    output, state = cell(initial_data, initial_state, input_dim, reuse=reuse)
+    output, state = cell(initial_data, initial_state, input_dim, reuse=reuse, scope=scope*"/RNN")
     # By **MAGIC** these values end up in `while_output` eve when num_steps=1
     # and the while-loop should not logically run
     all_time_output = expand_dims(output, 2) # add time dimension should be bsx1xstate_dim
@@ -300,7 +300,7 @@ function dynamic_rnn(cell::nn.rnn_cell.LSTMCell, inputs, sequence_length=nothing
         new_output = output
         # new_all_time_output = all_time_output
 
-        tf.variable_scope(scope) do
+        tf.variable_scope(scope*"/RNN") do
             new_output, new_state = cell(data, state, input_dim)
             # Only update output and state for rows that are not yet passed their ends
             have_passed_end = sequence_length .< time_step

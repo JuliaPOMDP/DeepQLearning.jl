@@ -5,7 +5,7 @@ Build a q network given an architecture
 """
 function build_q(input::Tensor,
                 arch::QNetworkArchitecture,
-                env::Union{POMDPEnvironment, MDPEnvironment};
+                env::MDPEnvironment;
                 scope::String="",
                 reuse::Bool=false,
                 dueling::Bool=false)

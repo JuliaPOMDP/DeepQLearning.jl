@@ -7,7 +7,7 @@ const TARGET_Q_SCOPE = "target_q"
 Create placeholders for DQN training: s, a, sp, r, done
 The shape is inferred from the environment
 """
-function build_placeholders(env::Union{POMDPEnvironment, MDPEnvironment})
+function build_placeholders(env::MDPEnvironment)
     obs_dim = obs_dimensions(env)
     n_outs = n_actions(env)
     s = placeholder(Float32, shape=[-1, obs_dim...])
@@ -24,7 +24,7 @@ end
 Build the loss operation
 relies on the Bellman equation
 """
-function build_loss(env::Union{POMDPEnvironment, MDPEnvironment}, q::Tensor, target_q::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
+function build_loss(env::MDPEnvironment, q::Tensor, target_q::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
     loss, td_errors = nothing, nothing
     variable_scope("loss") do
         term = cast(done_mask, Float32)
@@ -42,7 +42,7 @@ end
 Build the loss operation with double_q
 relies on the Bellman equation
 """
-function build_doubleq_loss(env::Union{POMDPEnvironment, MDPEnvironment}, q::Tensor, target_q::Tensor,qp::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
+function build_doubleq_loss(env::MDPEnvironment, q::Tensor, target_q::Tensor,qp::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
     loss, td_errors = nothing, nothing
     variable_scope("loss") do
         term = cast(done_mask, Float32)
@@ -139,6 +139,6 @@ function build_graph(solver::DeepQLearningSolver, env::Union{MDPEnvironment, POM
                                          lr=solver.lr,
                                          grad_clip=solver.grad_clip,
                                          clip_val=solver.clip_val)
-    update_op = build_update_target_op("active_q", "target_q")
+    update_op = build_update_target_op(Q_SCOPE, TARGET_Q_SCOPE)
     return TrainGraph(sess, s, a, sp, r, done_mask, importance_weights, q, qp, target_q, loss, td_errors, train_op, grad_norm, update_op)
 end

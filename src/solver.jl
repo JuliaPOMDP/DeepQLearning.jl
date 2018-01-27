@@ -164,7 +164,7 @@ end
 #     Evaluate the policy with several simulations
 # """
 # function fast_eval(graph::TrainGraph,
-#                    env::Union{POMDPEnvironment, MDPEnvironment};
+#                    env::MDPEnvironment;
 #                    n_eval::Int64 = 100,
 #                    max_steps::Int64 = 100,
 #                    rng::AbstractRNG = MersenneTwister(0))
