@@ -24,7 +24,12 @@ end
 Build the loss operation
 relies on the Bellman equation
 """
-function build_loss(env::MDPEnvironment, q::Tensor, target_q::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
+function build_loss(env::MDPEnvironment,
+                    q::Tensor,
+                    target_q::Tensor,
+                    a::Tensor, r::Tensor,
+                    done_mask::Tensor,
+                    importance_weights::Tensor)
     loss, td_errors = nothing, nothing
     variable_scope("loss") do
         term = cast(done_mask, Float32)
@@ -61,15 +66,6 @@ end
 
 
 """
-Compute the Huber Loss
-"""
-function huber_loss(x, δ::Float64=1.0)
-    mask = abs(x) .< δ
-    return mask.*0.5.*x.^2 + (1-mask).*δ.*(abs(x) - 0.5*δ)
-end
-
-
-"""
 Build train operation
 Support gradient clipping
 """
@@ -80,7 +76,7 @@ function build_train_op(loss::Tensor;
                         optimizer_type=train.AdamOptimizer)
     optimizer = optimizer_type(lr)
 
-    train_var = get_train_vars_by_name("active_q")
+    train_var = get_train_vars_by_name(Q_SCOPE)
 
     grad_vars = train.compute_gradients(optimizer, loss, train_var)
     clip_grads = grad_vars
