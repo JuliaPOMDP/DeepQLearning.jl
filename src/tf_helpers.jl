@@ -32,6 +32,14 @@ function Base.ndims(A::AbstractTensor)
     length(get_shape(A).dims)
 end
 
+"""
+Compute the Huber Loss
+"""
+function huber_loss(x, δ::Float64=1.0)
+    mask = abs(x) .< δ
+    return mask.*0.5.*x.^2 + (1-mask).*δ.*(abs(x) - 0.5*δ)
+end
+
 
 ############ MODEL BUILDING ###################################
 
