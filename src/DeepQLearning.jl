@@ -9,6 +9,8 @@ const tf = TensorFlow
 
 export DeepQLearningSolver,
        QNetworkArchitecture,
+       DeepRecurrentQLearningSolver,
+       RecurrentQNetworkArchitecture,
        # tf helpers
        flatten,
        dense,
@@ -105,7 +107,9 @@ Fields:
     verbose::Bool = true
 end
 
+include("recurrent_deep_q_learning.jl")
 include("experience_replay.jl")
+include("episode_replay.jl")
 include("prioritized_experience_replay.jl")
 include("graph.jl")
 include("policy.jl")
