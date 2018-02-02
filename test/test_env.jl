@@ -1,4 +1,3 @@
-##### Simple Test environment
 using POMDPs, POMDPToolbox, DeepRL
 
 # Define a test environment
@@ -10,6 +9,7 @@ using POMDPs, POMDPToolbox, DeepRL
 mutable struct TestMDP <: MDP{Tuple{Vector{Int64}, Int64}, Int64}
     shape
     stack::Int64
+    o_stack::Int64
     max_time::Int64
     bad_state::Array{Int64}
     normal_state::Array{Int64}
@@ -25,7 +25,7 @@ function TestMDP(shape=(6,), stack=4, max_time=6, discount_factor=0.99)
     good_state =  rand(200:250, shape...)
     _observation_space = [bad_state, normal_state, good_state]
     _rewards = [-0.1, 0.0, 0.1]
-    return TestMDP(shape, stack, max_time, bad_state, normal_state, good_state, _observation_space, _rewards, discount_factor)
+    return TestMDP(shape, 4, stack, max_time, bad_state, normal_state, good_state, _observation_space, _rewards, discount_factor)
 end
 
 POMDPs.discount(mdp::TestMDP) = mdp.discount_factor
@@ -47,9 +47,9 @@ function POMDPs.initial_state(mdp::TestMDP, rng::AbstractRNG)
 end
 
 function POMDPs.convert_s(t::Type{Vector{Float64}},s::Tuple{Vector{Int64}, Int64}, mdp::TestMDP)
-    obs = zeros(mdp.shape..., mdp.stack)
-    for i=1:mdp.stack
-        obs[Base.setindex(indices(obs), i, ndims(obs))...] = observations(mdp)[s[1][i]]
+    obs = zeros(mdp.shape..., mdp.o_stack)
+    for i=1:mdp.o_stack
+        obs[Base.setindex(indices(obs), i, ndims(obs))...] = observations(mdp)[s[1][end-i+1]]
     end
     return obs./255.0
 end

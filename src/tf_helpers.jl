@@ -217,7 +217,7 @@ function cnn_to_mlp(inputs, convs, hiddens, num_output;
         action_out = dense(action_out, num_output, activation=final_activation, scope=action_val_scope*"/fc_out", reuse=reuse)
 
         actions_mean = Ops.expand_dims(mean(action_out, 2),2) # shape bs x 1
-        println(get_shape(actions_mean))
+        
         actions_scaled = action_out - actions_mean # broadcast bs x n_actions - bs x 1
         out = state_out + actions_scaled
     else
@@ -264,67 +264,37 @@ function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false, s
     G = tanh(X*Wg + Bg)
     C = state.c.*F + G.*I
     S = tanh(C).*O
-
     return (S, LSTMStateTuple(C, S))
 end
 
-# modify the function from tensorflow.jl to support dynamic shapes and returns the output at all time steps
-function dynamic_rnn(cell::nn.rnn_cell.LSTMCell, inputs, sequence_length=nothing;input_dim=nothing, initial_state=nothing, dtype=nothing, parallel_iterations=nothing, swap_memory=false, time_major=false, scope="", reuse=false)
-    if input_dim === nothing
-        input_dim = tf.get_shape(inputs, 3)
-    end
-    #TODO Make this all work with non-3D inputs
-
-    if time_major
-        # TODO Do this in a more efficient way
-        inputs=permutedims(inputs, [2,1,3])
-    end
-
-    num_steps = convert(tf.Tensor{Int64}, tf.shape(inputs)[2])
-    if sequence_length === nothing
-        # Works around a bug in upstream TensorFlow's while-loop
-        # gradient calculation
-        sequence_length = num_steps
-    end
-
-
-    initial_data = inputs[:,1,:]
+# modify the function from tensorflow.jl to support parameter reuse and scoping
+function tf.nn.rnn(cell, inputs::Vector, sequence_length=nothing; initial_state=nothing, dtype=nothing, scope="", reuse=false)
     if initial_state === nothing
-        initial_state = zero_state(cell, initial_data, dtype)
+        initial_state = zero_state(cell, first(inputs), dtype)
     end
-    # By **MAGIC** these values end up in `while_output` even when num_steps=1
-
-    # Calculate first output -- we can't trivially default it,
-    # because that would require batch_size to be known statically,
-    # and not having a fixed batch_size is pretty nice.
-    output, state = cell(initial_data, initial_state, input_dim, reuse=reuse, scope=scope*"/RNN")
-    # By **MAGIC** these values end up in `while_output` eve when num_steps=1
-    # and the while-loop should not logically run
-    all_time_output = expand_dims(output, 2) # add time dimension should be bsx1xstate_dim
-    time_step = tf.constant(2) #skip the completed first step
-    while_output = @tf while time_step ≤ num_steps
-        data = inputs[:, time_step, :]
-        local new_state
-        new_output = output
-        # new_all_time_output = all_time_output
-
-        tf.variable_scope(scope*"/RNN") do
-            new_output, new_state = cell(data, state, input_dim)
+    outputs = tf.Tensor[]
+    state = initial_state
+    rnn_scope = scope*"/RNN"
+    for (time_step, input) in enumerate(inputs)
+        loop_reuse = time_step>1 || reuse
+        tf.variable_scope(scope; reuse=loop_reuse) do
+            new_output, new_state = cell(input, state, reuse=loop_reuse, scope=rnn_scope)
+        end
+        if sequence_length!==nothing && time_step > 1 # This should be removed by the julia lowering process
             # Only update output and state for rows that are not yet passed their ends
             have_passed_end = sequence_length .< time_step
-            f(old_arg, new_arg) = tf.select(have_passed_end, old_arg, new_arg)
-            new_output = tf.struct_map(f, output, new_output)
-            new_state = tf.struct_map(f, state, new_state)
-            all_time_output = hcat(all_time_output, expand_dims(new_output, 2))
+            new_output = tf.select(have_passed_end, outputs[end], new_output)
+            new_state = tf.select(have_passed_end, state, new_state)
         end
-
-        [time_step=>time_step+1, state=>new_state, output=>new_output, all_time_output=>all_time_output]
+        state = new_state
+        push!(outputs, new_output)
     end
+    return outputs, state
+end
 
-    final_state = while_output[2]
-    final_output = while_output[3]
-    final_all_time_output = while_output[4]
-    final_output, final_state, final_all_time_output
+function tf.nn.rnn(cell, inputs::tf.Tensor, sequence_length=nothing; time_major=false, kwargs...)
+    input_list = tf.unstack(inputs; axis = (time_major ? 1 : 2))
+    tf.nn.rnn(cell, input_list, sequence_length; kwargs...)
 end
 
 
