@@ -1,10 +1,6 @@
 
-function POMDPs.solve(solver::DeepQLearningSolver, problem::Union{MDP, POMDP})
-    if isa(problem, POMDP) # TODO use multiple dispatch or same as in deepRL.jl?
-        env = POMDPEnvironment(problem, rng=solver.rng)
-    else
-        env = MDPEnvironment(problem, rng=solver.rng)
-    end
+function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
+    env = MDPEnvironment(problem, rng=solver.rng)
     #init session and build graph Create a TrainGraph object with all the tensors
     train_graph = build_graph(solver, env)
 
@@ -150,61 +146,154 @@ function eval_q(graph::TrainGraph,
 end
 
 
+function POMDPs.solve(solver::DeepRecurrentQLearningSolver, problem::Union{MDP,POMDP})
+    env = POMDPEnvironment(problem, rng=solver.rng)
+    #init session and build graph Create a TrainGraph object with all the tensors
+    train_graph = build_graph(solver, env)
+    # init and populate replay buffer
+    replay = EpisodeReplayBuffer(env, solver.buffer_size, solver.batch_size, solver.trace_length)
+    populate_replay_buffer!(replay, env, max_pop=solver.train_start)
+    # init variables
+    run(train_graph.sess, global_variables_initializer())
+    #TODO save the training log somewhere
+    avg_r, loss, grad, rewards, eval_r = drqn_train(solver, env, train_graph, replay)
+    policy = train_graph.lstm_policy
+    policy.sess = train_graph.sess
+    return policy
+end
 
-# function fast_eval(policy::DQNPolicy, mdp, sim; n_eval=100)
-#     r_avg = 0.
-#     for i=1:n_eval
-#         r_avg += simulate(sim, mdp, policy)
-#     end
-#     r_avg /= n_eval
-#     return r_avg
-# end
+function drqn_train(solver::DeepRecurrentQLearningSolver,
+                   env::Union{MDPEnvironment, POMDPEnvironment},
+                   graph::RecurrentTrainGraph,
+                   replay::EpisodeReplayBuffer)
+    obs = reset(env)
+    reset_hidden_state!(graph.lstm_policy)
+    done = false
+    step = 0
+    rtot = 0
+    episode = DQExperience[]
+    sizehint!(episode, solver.max_episode_length)
+    episode_rewards = Float64[0.0]
+    saved_mean_reward = NaN
+    scores_eval = Float64[]
+    logg_mean = Float64[]
+    logg_loss = Float64[]
+    logg_grad = Float64[]
+    eps = 1.0
+    weights = ones(solver.batch_size*solver.trace_length)
+    init_c = zeros(solver.batch_size, solver.arch.lstm_size)
+    init_h = zeros(solver.batch_size, solver.arch.lstm_size)
+    grad_val, loss_val = NaN, NaN
+    for t=1:solver.max_steps
+        if rand(solver.rng) > eps
+            action = get_action!(graph.lstm_policy, obs, graph.sess)
+        else
+            action = sample_action(env)
+        end
+        # update epsilon
+        if t < solver.eps_fraction*max_steps
+            eps = 1 - (1 - solver.eps_end)/(solver.eps_fraction*solver.max_steps)*t # decay
+        else
+            eps = solver.eps_end
+        end
+        ai = action_index(env.problem, action)
+        op, rew, done, info = step!(env, action)
+        exp = DQExperience(obs, ai, rew, op, done)
+        push!(episode, exp)
+        obs = op
+        step += 1
+        episode_rewards[end] += rew
+        if done || step >= solver.max_episode_length
+            add_episode!(replay, episode)
+            episode = DQExperience[] # empty episode
+            obs = reset(env)
+            reset_hidden_state!(graph.lstm_policy)
+            push!(episode_rewards, 0.0)
+            done = false
+            step = 0
+            rtot = 0
+        end
+        num_episodes = length(episode_rewards)
+        avg100_reward = mean(episode_rewards[max(1, length(episode_rewards)-101):end])
+        if t%solver.train_freq == 0
+            s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = sample(replay)
+            feed_dict = Dict(graph.s => s_batch,
+                             graph.a => a_batch,
+                             graph.sp => sp_batch,
+                             graph.r => r_batch,
+                             graph.done_mask => done_batch,
+                             graph.trace_mask => trace_mask_batch,
+                             graph.w => weights,
+                             graph.hq_in.c => init_c,
+                             graph.hq_in.h => init_h,
+                             graph.hqp_in.c => init_c,
+                             graph.hqp_in.h => init_h,
+                             graph.target_hq_in.c => init_c,
+                             graph.target_hq_in.h => init_h
+                             )
+            loss_val, td_errors_val, grad_val, _ = run(graph.sess,
+                                                       [loss, td_errors, grad_norm, train_op],
+                                                       feed_dict)
+            push!(logg_loss, loss_val)
+            push!(logg_grad, grad_val)
+        end
 
-# """
-#     Evaluate the policy with several simulations
-# """
-# function fast_eval(graph::TrainGraph,
-#                    env::MDPEnvironment;
-#                    n_eval::Int64 = 100,
-#                    max_steps::Int64 = 100,
-#                    rng::AbstractRNG = MersenneTwister(0))
-#     avg_r = 0.
-#     for i=1:n_eval
-#         avg_r += simulate(graph, env, max_steps=max_steps, rng=rng)
-#     end
-#     avg_r /= n_eval
-#     return avg_r
-# end
-#
-# """
-#     A simulator that just returns the reward
-# """
-# function POMDPs.simulate(graph::TrainGraph,
-#                   env::Union{MDPEnvironment, POMDPEnvironment};
-#                   max_steps::Int64=100,
-#                   rng::AbstractRNG = MersenneTwister(0))
-#     s = reset(env)
-#
-#     disc = 1.0
-#     r_total = 0.0
-#     step = 1
-#     done = false
-#
-#     while !done && step <= max_steps
-#         action =  get_action(graph, env, s)
-#
-#         sp, r, done, info = step!(env, action)
-#
-#         r_total += disc*r
-#
-#         s = sp
-#
-#         disc *= discount(env.problem)
-#         step += 1
-#   end
-#
-#   return r_total
-# end
-#
-#
-#
+        if t%target_update_freq == 0
+            run(graph.sess, update_op)
+        end
+
+        if t%eval_freq == 0
+            # save hidden state before
+            hidden_state = graph.lstm_policy.state_val
+            push!(scores_eval, eval_lstm(graph.lstm_policy,
+                                         env,
+                                         graph.sess,
+                                         n_eval=solver.num_ep_eval,
+                                         max_episode_length=solver.max_episode_length))
+            # reset hidden state
+            graph.lstm_policy.state_val = hidden_state
+        end
+
+        if t%log_freq == 0
+            push!(logg_mean, avg100_reward)
+            if  verbose
+                logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3f | Grad %2.3f",
+                                 t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
+                println(logg)
+            end
+        end
+    end
+    return logg_mean, logg_loss , logg_grad, episode_rewards, scores_eval
+end
+
+function eval_lstm(policy::LSTMPolicy,
+                env::Union{MDPEnvironment, POMDPEnvironment},
+                sess;
+                n_eval::Int64=100,
+                max_episode_length::Int64=100)
+    # Evaluation
+    avg_r = 0
+    for i=1:n_eval
+        done = false
+        r_tot = 0.0
+        step = 0
+        obs = reset(env)
+        reset_hidden_state!(lstm_policy)
+        # println("start at t=0 obs $obs")
+        # println("Start state $(env.state)")
+        while !done && step <= max_episode_length
+            action = get_action!(lstm_policy, obs, sess)
+            # println(action)
+            obs, rew, done, info = step!(env, action)
+            # println("state ", env.state, " action ", a)
+            # println("Reward ", rew)
+            # println(obs, " ", done, " ", info, " ", step)
+            r_tot += rew
+            step += 1
+        end
+        avg_r += r_tot
+        # println(r_tot)
+
+    end
+    return  avg_r /= n_eval
+end
