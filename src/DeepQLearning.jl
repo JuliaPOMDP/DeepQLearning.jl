@@ -33,6 +33,7 @@ export DeepQLearningSolver,
        # training
        TrainGraph,
        DQNPolicy,
+       LSTMPolicy,
        action,
        solve,
        save,
@@ -111,8 +112,8 @@ include("recurrent_deep_q_learning.jl")
 include("experience_replay.jl")
 include("episode_replay.jl")
 include("prioritized_experience_replay.jl")
-include("graph.jl")
 include("policy.jl")
+include("graph.jl")
 include("q_network.jl")
 include("solver.jl")
 include("saver.jl")

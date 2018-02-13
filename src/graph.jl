@@ -125,6 +125,13 @@ function build_update_target_op(q_scope=Q_SCOPE, target_q_scope=TARGET_Q_SCOPE)
     return update_target_op = tf.group(all_ops..., name="update_target_op")
 end
 
+function get_action(graph::TrainGraph, env::Union{MDPEnvironment, POMDPEnvironment}, o::Array{Float64})
+    # cannot take a batch of observations
+    o = reshape(o, (1, size(o)...))
+    q_val = run(graph.sess, graph.q, Dict(graph.s => o) )
+    ai = indmax(q_val)
+    return actions(env)[ai] # inefficient
+end
 
 function build_graph(solver::DeepQLearningSolver, env::MDPEnvironment)
     sess = init_session()

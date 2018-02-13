@@ -5,15 +5,6 @@ mutable struct DQNPolicy <: Policy
     sess
 end
 
-
-function get_action(graph::TrainGraph, env::Union{MDPEnvironment, POMDPEnvironment}, o::Array{Float64})
-    # cannot take a batch of observations
-    o = reshape(o, (1, size(o)...))
-    q_val = run(graph.sess, graph.q, Dict(graph.s => o) )
-    ai = indmax(q_val)
-    return actions(env)[ai] # inefficient
-end
-
 function get_action(policy::DQNPolicy, o::Array{Float64})
     # cannot take a batch of observations
     o = reshape(o, (1, size(o)...))
