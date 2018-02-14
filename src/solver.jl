@@ -1,11 +1,5 @@
 
-function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
-    env = MDPEnvironment(problem, rng=solver.rng)
-    #init session and build graph Create a TrainGraph object with all the tensors
-    return solve(solver, env)
-end
-
-function POMPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
+function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     train_graph = build_graph(solver, env)
 
     # init and populate replay buffer
@@ -23,8 +17,14 @@ function POMPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     return policy
 end
 
+function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
+    env = MDPEnvironment(problem, rng=solver.rng)
+    #init session and build graph Create a TrainGraph object with all the tensors
+    return solve(solver, env)
+end
+
 function dqn_train(solver::DeepQLearningSolver,
-                   env::Union{MDPEnvironment, POMDPEnvironment},
+                   env::AbstractEnvironment,
                    graph::TrainGraph,
                    replay::Union{ReplayBuffer, PrioritizedReplayBuffer})
     obs = reset(env)
@@ -118,7 +118,7 @@ end
 Evaluate a Q network
 """
 function eval_q(graph::TrainGraph,
-                env::Union{MDPEnvironment, POMDPEnvironment};
+                env::AbstractEnvironment;
                 n_eval::Int64=100,
                 max_episode_length::Int64=100)
     # Evaluation
@@ -165,7 +165,7 @@ function POMDPs.solve(solver::DeepRecurrentQLearningSolver, problem::Union{MDP,P
 end
 
 function drqn_train(solver::DeepRecurrentQLearningSolver,
-                   env::Union{MDPEnvironment, POMDPEnvironment},
+                   env::AbstractEnvironment,
                    graph::RecurrentTrainGraph,
                    replay::EpisodeReplayBuffer)
     obs = reset(env)
@@ -269,7 +269,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
 end
 
 function eval_lstm(policy::LSTMPolicy,
-                env::Union{MDPEnvironment, POMDPEnvironment},
+                env::AbstractEnvironment,
                 sess;
                 n_eval::Int64=100,
                 max_episode_length::Int64=100)

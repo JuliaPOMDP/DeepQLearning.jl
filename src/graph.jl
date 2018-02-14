@@ -31,7 +31,7 @@ end
 Create placeholders for DQN training: s, a, sp, r, done
 The shape is inferred from the environment
 """
-function build_placeholders(env::MDPEnvironment)
+function build_placeholders(env::AbstractEnvironment)
     obs_dim = obs_dimensions(env)
     n_outs = n_actions(env)
     s = placeholder(Float32, shape=[-1, obs_dim...])
@@ -48,7 +48,7 @@ end
 Build the loss operation
 relies on the Bellman equation
 """
-function build_loss(env::MDPEnvironment,
+function build_loss(env::AbstractEnvironment,
                     q::Tensor,
                     target_q::Tensor,
                     a::Tensor, r::Tensor,
@@ -71,7 +71,7 @@ end
 Build the loss operation with double_q
 relies on the Bellman equation
 """
-function build_doubleq_loss(env::MDPEnvironment, q::Tensor, target_q::Tensor,qp::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
+function build_doubleq_loss(env::AbstractEnvironment, q::Tensor, target_q::Tensor,qp::Tensor, a::Tensor, r::Tensor, done_mask::Tensor, importance_weights::Tensor)
     loss, td_errors = nothing, nothing
     variable_scope("loss") do
         term = cast(done_mask, Float32)
@@ -125,7 +125,7 @@ function build_update_target_op(q_scope=Q_SCOPE, target_q_scope=TARGET_Q_SCOPE)
     return update_target_op = tf.group(all_ops..., name="update_target_op")
 end
 
-function get_action(graph::TrainGraph, env::Union{MDPEnvironment, POMDPEnvironment}, o::Array{Float64})
+function get_action(graph::TrainGraph, env::AbstractEnvironment, o::Array{Float64})
     # cannot take a batch of observations
     o = reshape(o, (1, size(o)...))
     q_val = run(graph.sess, graph.q, Dict(graph.s => o) )
@@ -133,7 +133,7 @@ function get_action(graph::TrainGraph, env::Union{MDPEnvironment, POMDPEnvironme
     return actions(env)[ai] # inefficient
 end
 
-function build_graph(solver::DeepQLearningSolver, env::MDPEnvironment)
+function build_graph(solver::DeepQLearningSolver, env::AbstractEnvironment)
     sess = init_session()
     s, a, sp, r, done_mask, importance_weights = build_placeholders(env)
     q = build_q(s, solver.arch, env, scope=Q_SCOPE, dueling=solver.dueling)
@@ -181,7 +181,7 @@ mutable struct RecurrentTrainGraph
 end
 
 # placeholder
-function build_placeholders(env::Union{POMDPEnvironment, MDPEnvironment}, trace_length::Int64)
+function build_placeholders(env::AbstractEnvironment, trace_length::Int64)
     obs_dim = obs_dimensions(env)
     n_outs = n_actions(env)
     # bs x trace_length x dim
@@ -196,7 +196,7 @@ function build_placeholders(env::Union{POMDPEnvironment, MDPEnvironment}, trace_
 end
 
 
-function build_loss(env::Union{POMDPEnvironment, MDPEnvironment},
+function build_loss(env::AbstractEnvironment,
                     q::Tensor,
                     target_q::Tensor,
                     a::Tensor,
@@ -222,7 +222,7 @@ function build_loss(env::Union{POMDPEnvironment, MDPEnvironment},
     return loss, td_errors
 end
 
-function build_doubleq_loss(env::Union{POMDPEnvironment, MDPEnvironment},
+function build_doubleq_loss(env::AbstractEnvironment,
                             q::Tensor,
                             target_q::Tensor,
                             qp::Tensor,
@@ -253,7 +253,7 @@ function build_doubleq_loss(env::Union{POMDPEnvironment, MDPEnvironment},
 end
 
 
-function build_graph(solver::DeepRecurrentQLearningSolver, env::Union{MDPEnvironment, POMDPEnvironment})
+function build_graph(solver::DeepRecurrentQLearningSolver, env::AbstractEnvironment)
     sess = init_session()
     s, a, sp, r, done_mask, trace_mask, w = build_placeholders(env, trace_length)
     q, hq_in, hq_out = build_recurrent_q_network(s,

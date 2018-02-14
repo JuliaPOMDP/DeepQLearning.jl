@@ -7,7 +7,7 @@ with ReLU activation apart from the output layer
 """
 function build_q(input::Tensor,
                 arch::QNetworkArchitecture,
-                env::MDPEnvironment;
+                env::AbstractEnvironment;
                 scope::String="",
                 reuse::Bool=false,
                 dueling::Bool=false)
