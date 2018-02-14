@@ -149,7 +149,15 @@ end
 
 
 function POMDPs.solve(solver::DeepRecurrentQLearningSolver, problem::Union{MDP,POMDP})
-    env = POMDPEnvironment(problem, rng=solver.rng)
+    if !isa(problem, POMDP)
+        env = MDPEnvironment(prob, rng=solver.rng)
+    else
+        env = POMDPEnvironment(prob, rng=solver.rng)
+    end
+    return solve(solver, env)
+end
+
+function POMDPs.solve(solver::DeepRecurrentQLearningSolver, env::AbstractEnvironment)
     #init session and build graph Create a TrainGraph object with all the tensors
     train_graph = build_graph(solver, env)
     # init and populate replay buffer
@@ -163,6 +171,7 @@ function POMDPs.solve(solver::DeepRecurrentQLearningSolver, problem::Union{MDP,P
     policy.sess = train_graph.sess
     return policy
 end
+
 
 function drqn_train(solver::DeepRecurrentQLearningSolver,
                    env::AbstractEnvironment,
