@@ -207,7 +207,7 @@ end
 
 
 function eval_lstm(policy::LSTMPolicy,
-                env::Union{MDPEnvironment, POMDPEnvironment},
+                env::AbstractEnvironment,
                 sess;
                 n_eval::Int64=100,
                 max_episode_length::Int64=100)

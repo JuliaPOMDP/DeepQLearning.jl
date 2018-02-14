@@ -22,4 +22,16 @@ solver.dueling = true
 policy_dueling = solve(solver, mdp)
 r_dueling = simulate(sim, mdp, policy_dueling)
 
+
+solver = DeepRecurrentQLearningSolver(max_steps=10000, lr=0.005, eval_freq=1000,num_ep_eval=100,
+                            arch = RecurrentQNetworkArchitecture(fc_in=[8], lsmt_size=12),
+                            double_q = false, dueling=false)
+
+mdp = TestMDP((5,5), 1, 6)
+
+policy = solve(solver, mdp)
+
+
+
+
 #TODO test on gridworld
