@@ -2,6 +2,10 @@
 function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
     env = MDPEnvironment(problem, rng=solver.rng)
     #init session and build graph Create a TrainGraph object with all the tensors
+    return solve(solver, env)
+end
+
+function POMPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     train_graph = build_graph(solver, env)
 
     # init and populate replay buffer
@@ -18,8 +22,6 @@ function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
     policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
     return policy
 end
-
-
 
 function dqn_train(solver::DeepQLearningSolver,
                    env::Union{MDPEnvironment, POMDPEnvironment},
