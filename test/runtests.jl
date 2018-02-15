@@ -1,4 +1,4 @@
-using DeepQLearning
+using DeepQLearning, POMDPModels, DeepRL
 using Base.Test
 
 include("tf_helpers_test.jl")
@@ -24,14 +24,18 @@ r_dueling = simulate(sim, mdp, policy_dueling)
 
 
 solver = DeepRecurrentQLearningSolver(max_steps=10000, lr=0.005, eval_freq=1000,num_ep_eval=100,
-                            arch = RecurrentQNetworkArchitecture(fc_in=[8], lsmt_size=12),
-                            double_q = false, dueling=false)
+                            arch = RecurrentQNetworkArchitecture(fc_in=[8], lstm_size=12, fc_out=[8]),
+                            double_q = true, dueling=true)
 
 mdp = TestMDP((5,5), 1, 6)
-
 policy = solve(solver, mdp)
+avg_test = eval_lstm(policy, MDPEnvironment(mdp), policy.sess)
+@test avg_test > 2
 
-
-
+solver.grad_clip = false
+mdp = GridWorld();
+policy = solve(solver, mdp)
+avg_gridworld = eval_lstm(policy, MDPEnvironment(mdp), policy.sess)
+@test avg_gridworld > 0
 
 #TODO test on gridworld
