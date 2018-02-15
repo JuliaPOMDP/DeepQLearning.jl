@@ -170,8 +170,14 @@ mutable struct RecurrentTrainGraph
     trace_mask::Tensor
     importance_weights::Tensor
     q::Tensor
+    hq_in::LSTMStateTuple
+    hq_out::LSTMStateTuple
     qp::Tensor
+    hqp_in::LSTMStateTuple
+    hqp_out::LSTMStateTuple
     target_q::Tensor
+    target_hq_in::LSTMStateTuple
+    target_hq_out::LSTMStateTuple
     loss::Tensor
     td_errors::Tensor
     train_op::Tensor
@@ -208,6 +214,7 @@ function build_loss(env::AbstractEnvironment,
     variable_scope("loss") do
         # flatten time dim
         trace_length = 6
+        time_mask = reshape(trace_mask, (-1))
         flat_a = reshape(a, (-1))
         flat_r = reshape(r, (-1))
         flat_done_mask = reshape(done_mask, (-1))
@@ -255,7 +262,7 @@ end
 
 function build_graph(solver::DeepRecurrentQLearningSolver, env::AbstractEnvironment)
     sess = init_session()
-    s, a, sp, r, done_mask, trace_mask, w = build_placeholders(env, trace_length)
+    s, a, sp, r, done_mask, trace_mask, w = build_placeholders(env, solver.trace_length)
     q, hq_in, hq_out = build_recurrent_q_network(s,
                                                  solver.arch.convs,
                                                  solver.arch.fc_in,
@@ -296,5 +303,9 @@ function build_graph(solver::DeepRecurrentQLearningSolver, env::AbstractEnvironm
                                          clip_val=solver.clip_val)
     update_op = build_update_target_op(Q_SCOPE, TARGET_Q_SCOPE)
     lstm_policy = LSTMPolicy(sess, env, solver.arch, solver.dueling)
-    return TrainGraph(sess, s, a, sp, r, done_mask, importance_weights, q, qp, target_q, loss, td_errors, train_op, grad_norm, update_op)
+    return RecurrentTrainGraph(sess, s, a, sp, r, done_mask, trace_mask, w,
+                               q, hq_in, hq_out,
+                               qp, hqp_in, hqp_out,
+                               target_q, target_hq_in, target_hq_out, 
+                               loss, td_errors, train_op, grad_norm, update_op, lstm_policy)
 end

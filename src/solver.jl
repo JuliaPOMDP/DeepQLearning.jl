@@ -150,9 +150,9 @@ end
 
 function POMDPs.solve(solver::DeepRecurrentQLearningSolver, problem::Union{MDP,POMDP})
     if !isa(problem, POMDP)
-        env = MDPEnvironment(prob, rng=solver.rng)
+        env = MDPEnvironment(problem, rng=solver.rng)
     else
-        env = POMDPEnvironment(prob, rng=solver.rng)
+        env = POMDPEnvironment(problem, rng=solver.rng)
     end
     return solve(solver, env)
 end
@@ -202,7 +202,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
             action = sample_action(env)
         end
         # update epsilon
-        if t < solver.eps_fraction*max_steps
+        if t < solver.eps_fraction*solver.max_steps
             eps = 1 - (1 - solver.eps_end)/(solver.eps_fraction*solver.max_steps)*t # decay
         else
             eps = solver.eps_end
@@ -234,7 +234,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
                              graph.r => r_batch,
                              graph.done_mask => done_batch,
                              graph.trace_mask => trace_mask_batch,
-                             graph.w => weights,
+                             graph.importance_weights => weights,
                              graph.hq_in.c => init_c,
                              graph.hq_in.h => init_h,
                              graph.hqp_in.c => init_c,
@@ -243,17 +243,17 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
                              graph.target_hq_in.h => init_h
                              )
             loss_val, td_errors_val, grad_val, _ = run(graph.sess,
-                                                       [loss, td_errors, grad_norm, train_op],
+                                                       [graph.loss, graph.td_errors, graph.grad_norm, graph.train_op],
                                                        feed_dict)
             push!(logg_loss, loss_val)
             push!(logg_grad, grad_val)
         end
 
-        if t%target_update_freq == 0
-            run(graph.sess, update_op)
+        if t%solver.target_update_freq == 0
+            run(graph.sess, graph.update_op)
         end
 
-        if t%eval_freq == 0
+        if t%solver.eval_freq == 0
             # save hidden state before
             hidden_state = graph.lstm_policy.state_val
             push!(scores_eval, eval_lstm(graph.lstm_policy,
@@ -265,9 +265,9 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
             graph.lstm_policy.state_val = hidden_state
         end
 
-        if t%log_freq == 0
+        if t%solver.log_freq == 0
             push!(logg_mean, avg100_reward)
-            if  verbose
+            if  solver.verbose
                 logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3f | Grad %2.3f",
                                  t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
                 println(logg)
@@ -289,11 +289,11 @@ function eval_lstm(policy::LSTMPolicy,
         r_tot = 0.0
         step = 0
         obs = reset(env)
-        reset_hidden_state!(lstm_policy)
+        reset_hidden_state!(policy)
         # println("start at t=0 obs $obs")
         # println("Start state $(env.state)")
         while !done && step <= max_episode_length
-            action = get_action!(lstm_policy, obs, sess)
+            action = get_action!(policy, obs, sess)
             # println(action)
             obs, rew, done, info = step!(env, action)
             # println("state ", env.state, " action ", a)

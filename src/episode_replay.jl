@@ -83,13 +83,13 @@ end
 
 function populate_replay_buffer!(r::EpisodeReplayBuffer,
                                  env::AbstractEnvironment;
-                                 max_pop::Int64 = replay.max_size,
+                                 max_pop::Int64 = r.max_size,
                                  max_steps::Int64 = 100)
-    for t=1:(max_pop - replay._curr_size)
+    for t=1:(max_pop - r._curr_size)
         ep = generate_episode(env, max_steps=max_steps)
         add_episode!(r, ep)
     end
-    @assert replay._curr_size >= replay.batch_size
+    @assert r._curr_size >= r.batch_size
 end
 
 function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
