@@ -144,6 +144,7 @@ function eval_q(graph::TrainGraph,
         # println(r_tot)
 
     end
+    println("Evaluation ... Avg Reward ", avg_r/n_eval)
     return  avg_r /= n_eval
 end
 
@@ -304,7 +305,7 @@ function eval_lstm(policy::LSTMPolicy,
         end
         avg_r += r_tot
         # println(r_tot)
-
     end
+    println("Evaluation ... Avg Reward ", avg_r/n_eval)
     return  avg_r /= n_eval
 end
