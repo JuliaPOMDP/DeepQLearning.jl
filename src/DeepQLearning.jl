@@ -19,6 +19,7 @@ export DeepQLearningSolver,
        cnn_to_mlp,
        get_train_vars_by_name,
        init_session,
+       logg_scalar,
 
        # replay buffer
        DQExperience,
@@ -111,6 +112,7 @@ end
     grad_clip::Bool = true
     clip_val::Float64 = 10.0
     rng::AbstractRNG = MersenneTwister(0)
+    logdir::String = "log"
     verbose::Bool = true
 end
 

@@ -10,6 +10,14 @@ import TensorFlow.nn.rnn_cell: get_input_dim, LSTMStateTuple
 ########### General Helpers ###################################
 
 """
+create a summary object to be passed to the summary writer to logg value under name tag
+"""
+function logg_scalar(value::Float64, tag::String)
+    return tf.tensorflow.Summary(value=[tf.tensorflow.Summary_Value(simple_value = value, tag=tag)])
+end
+
+
+"""
 Reset the graph and open a new session
 """
 function init_session()
@@ -217,7 +225,7 @@ function cnn_to_mlp(inputs, convs, hiddens, num_output;
         action_out = dense(action_out, num_output, activation=final_activation, scope=action_val_scope*"/fc_out", reuse=reuse)
 
         actions_mean = Ops.expand_dims(mean(action_out, 2),2) # shape bs x 1
-        
+
         actions_scaled = action_out - actions_mean # broadcast bs x n_actions - bs x 1
         out = state_out + actions_scaled
     else
