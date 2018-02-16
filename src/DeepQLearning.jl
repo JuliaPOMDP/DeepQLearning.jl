@@ -111,7 +111,6 @@ end
     train_start::Int64 = 200
     grad_clip::Bool = true
     clip_val::Float64 = 10.0
-    logdir::String = ""
     rng::AbstractRNG = MersenneTwister(0)
     logdir::String = "log"
     verbose::Bool = true

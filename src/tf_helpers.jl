@@ -12,7 +12,7 @@ import TensorFlow.nn.rnn_cell: get_input_dim, LSTMStateTuple
 """
 create a summary object to be passed to the summary writer to logg value under name tag
 """
-function logg_scalar(value::Float64, tag::String)
+function logg_scalar(value::Real, tag::String)
     return tf.tensorflow.Summary(value=[tf.tensorflow.Summary_Value(simple_value = value, tag=tag)])
 end
 
