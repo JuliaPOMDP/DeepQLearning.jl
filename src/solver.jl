@@ -12,7 +12,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     # init variables
     run(train_graph.sess, global_variables_initializer())
     #TODO save the training log somewhere
-    avg_r, loss, grad, rewards, eval_r = dqn_train(solver, env, train_graph, replay)
+    dqn_train(solver, env, train_graph, replay)
     policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
     return policy
 end
@@ -34,10 +34,7 @@ function dqn_train(solver::DeepQLearningSolver,
     rtot = 0
     episode_rewards = Float64[0.0]
     saved_mean_reward = NaN
-    scores_eval = Float64[0.]
-    logg_mean = Float64[]
-    logg_loss = Float64[]
-    logg_grad = Float64[]
+    scores_eval = 0.
     eps = 1.0
     weights = ones(solver.batch_size)
     for t=1:solver.max_steps
@@ -83,8 +80,6 @@ function dqn_train(solver::DeepQLearningSolver,
             loss_val, td_errors, grad_val, _ = run(graph.sess,[graph.loss, graph.td_errors, graph.grad_norm, graph.train_op],
                                         feed_dict)
 
-            push!(logg_loss, loss_val)
-            push!(logg_grad, grad_val)
         end
 
         if t%solver.target_update_freq == 0
@@ -92,18 +87,11 @@ function dqn_train(solver::DeepQLearningSolver,
         end
 
         if t%solver.eval_freq == 0
-            @time push!(scores_eval, eval_q(graph, env, n_eval=solver.num_ep_eval,
-                                                  max_episode_length=solver.max_episode_length))
-            # @time score = fast_eval(graph, env, n_eval=solver.num_ep_eval,
-            #                               max_steps=solver.max_episode_length,
-            #                               rng = solver.rng)
-            # eval_policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
-            # @time score = fast_eval(eval_policy, env.problem, sim, n_eval=solver.num_ep_eval)
-            # push!(scores_eval, score)
+            scores_eval = eval_q(graph, env, n_eval=solver.num_ep_eval,
+                                                  max_episode_length=solver.max_episode_length)
         end
 
         if t%solver.log_freq == 0
-            push!(logg_mean, avg100_reward)
             # log to tensorboard
             tb_avgr = logg_scalar(avg100_reward, "avg_reward")
             tb_evalr = logg_scalar(scores_eval[end], "eval_reward")
@@ -124,7 +112,7 @@ function dqn_train(solver::DeepQLearningSolver,
             end
         end
     end
-    return logg_mean, logg_loss , logg_grad, episode_rewards, scores_eval
+    return
 end
 
 
@@ -181,7 +169,7 @@ function POMDPs.solve(solver::DeepRecurrentQLearningSolver, env::AbstractEnviron
     # init variables
     run(train_graph.sess, global_variables_initializer())
     #TODO save the training log somewhere
-    avg_r, loss, grad, rewards, eval_r = drqn_train(solver, env, train_graph, replay)
+    drqn_train(solver, env, train_graph, replay)
     policy = train_graph.lstm_policy
     policy.sess = train_graph.sess
     return policy
@@ -202,15 +190,12 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
     sizehint!(episode, solver.max_episode_length)
     episode_rewards = Float64[0.0]
     saved_mean_reward = NaN
-    scores_eval = Float64[0.0]
-    logg_mean = Float64[]
-    logg_loss = Float64[]
-    logg_grad = Float64[]
+    scores_eval = 0.0
     eps = 1.0
     weights = ones(solver.batch_size*solver.trace_length)
     init_c = zeros(solver.batch_size, solver.arch.lstm_size)
     init_h = zeros(solver.batch_size, solver.arch.lstm_size)
-    grad_val, loss_val = NaN, NaN
+    grad_val, loss_val = -1, -1 # sentinel value
     for t=1:solver.max_steps
         if rand(solver.rng) > eps
             action = get_action!(graph.lstm_policy, obs, graph.sess)
@@ -261,8 +246,6 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
             loss_val, td_errors_val, grad_val, _ = run(graph.sess,
                                                        [graph.loss, graph.td_errors, graph.grad_norm, graph.train_op],
                                                        feed_dict)
-            push!(logg_loss, loss_val)
-            push!(logg_grad, grad_val)
         end
 
         if t%solver.target_update_freq == 0
@@ -272,17 +255,16 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
         if t%solver.eval_freq == 0
             # save hidden state before
             hidden_state = graph.lstm_policy.state_val
-            push!(scores_eval, eval_lstm(graph.lstm_policy,
-                                         env,
-                                         graph.sess,
-                                         n_eval=solver.num_ep_eval,
-                                         max_episode_length=solver.max_episode_length))
+            scores_eval = eval_lstm(graph.lstm_policy,
+                                     env,
+                                     graph.sess,
+                                     n_eval=solver.num_ep_eval,
+                                     max_episode_length=solver.max_episode_length)
             # reset hidden state
             graph.lstm_policy.state_val = hidden_state
         end
 
         if t%solver.log_freq == 0
-            push!(logg_mean, avg100_reward)
             # log to tensorboard
             tb_avgr = logg_scalar(avg100_reward, "avg_reward")
             tb_evalr = logg_scalar(scores_eval[end], "eval_reward")
@@ -303,7 +285,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
             end
         end
     end
-    return logg_mean, logg_loss , logg_grad, episode_rewards, scores_eval
+    return
 end
 
 function eval_lstm(policy::LSTMPolicy,
