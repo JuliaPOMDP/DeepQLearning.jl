@@ -192,6 +192,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
                    env::AbstractEnvironment,
                    graph::RecurrentTrainGraph,
                    replay::EpisodeReplayBuffer)
+    summary_writer = tf.summary.FileWriter(solver.logdir)
     obs = reset(env)
     reset_hidden_state!(graph.lstm_policy)
     done = false
@@ -201,7 +202,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
     sizehint!(episode, solver.max_episode_length)
     episode_rewards = Float64[0.0]
     saved_mean_reward = NaN
-    scores_eval = Float64[]
+    scores_eval = Float64[0.0]
     logg_mean = Float64[]
     logg_loss = Float64[]
     logg_grad = Float64[]
@@ -282,6 +283,19 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
 
         if t%solver.log_freq == 0
             push!(logg_mean, avg100_reward)
+            # log to tensorboard
+            tb_avgr = logg_scalar(avg100_reward, "avg_reward")
+            tb_evalr = logg_scalar(scores_eval[end], "eval_reward")
+            tb_loss = logg_scalar(loss_val, "loss")
+            tb_grad = logg_scalar(grad_val, "grad_norm")
+            tb_epreward = logg_scalar(episode_rewards[end], "episode_reward")
+            tb_eps = logg_scalar(eps, "epsilon")
+            write(summary_writer, tb_avgr, t)
+            write(summary_writer, tb_evalr, t)
+            write(summary_writer, tb_loss, t)
+            write(summary_writer, tb_grad, t)
+            write(summary_writer, tb_epreward, t)
+            write(summary_writer, tb_eps, t)
             if  solver.verbose
                 logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3f | Grad %2.3f",
                                  t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)

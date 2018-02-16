@@ -63,5 +63,6 @@ Deep Q learning with a recurrent module to solve POMDPs
     grad_clip::Bool = true
     clip_val::Float64 = 10.0
     rng::AbstractRNG = MersenneTwister(0)
+    logdir::String = "log"
     verbose::Bool = true
 end
