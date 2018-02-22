@@ -65,6 +65,7 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
         ep = r._experience[idx]
         # randomized start TODO add as an option of the buffer
         ep_start = rand(r.rng, 1:length(ep))
+        #ep_start = 1
         t = 1
         for j=ep_start:min(length(ep), r.trace_length)
             expe = ep[j]
