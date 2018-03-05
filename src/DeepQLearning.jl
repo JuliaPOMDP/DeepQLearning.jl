@@ -1,3 +1,5 @@
+__precompile__()
+
 module DeepQLearning
 
 # package code goes here
@@ -113,6 +115,7 @@ end
     clip_val::Float64 = 10.0
     rng::AbstractRNG = MersenneTwister(0)
     logdir::String = "log"
+    save_freq::Int64 = 10000
     verbose::Bool = true
 end
 

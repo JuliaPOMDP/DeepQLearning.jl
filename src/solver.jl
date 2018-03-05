@@ -33,10 +33,11 @@ function dqn_train(solver::DeepQLearningSolver,
     step = 0
     rtot = 0
     episode_rewards = Float64[0.0]
-    saved_mean_reward = NaN
+    saved_mean_reward = 0.
     scores_eval = 0.
     eps = 1.0
     weights = ones(solver.batch_size)
+    model_saved = false
     for t=1:solver.max_steps
         if rand(solver.rng) > eps
             action = get_action(graph, env, obs)
@@ -112,6 +113,24 @@ function dqn_train(solver::DeepQLearningSolver,
                                  t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
                 println(logg)
             end
+        end
+
+        if t > solver.train_start && t%solver.save_freq == 0
+            if scores_eval[end] > saved_mean_reward
+                if solver.verbose
+                    println("Saving new model with eval reward ", scores_eval[end])
+                end
+                saver = tf.train.Saver()
+                train.save(saver, graph.sess, solver.logdir*"weights.jld")
+                model_saved = true
+                saved_mean_reward = scores_eval[end]
+            end
+        end
+
+    end
+    if model_saved
+        if solver.verbose
+            println("Restore model with eval reward ", saved_mean_reward)
         end
     end
     return
@@ -191,7 +210,8 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
     episode = DQExperience[]
     sizehint!(episode, solver.max_episode_length)
     episode_rewards = Float64[0.0]
-    saved_mean_reward = NaN
+    saved_mean_reward = 0.
+    model_saved = false
     scores_eval = 0.0
     eps = 1.0
     weights = ones(solver.batch_size*solver.trace_length)
@@ -287,6 +307,22 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
                                  t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
                 println(logg)
             end
+        end
+        if t > solver.train_start && t%solver.save_freq == 0
+            if scores_eval[end] > saved_mean_reward
+                if solver.verbose
+                    println("Saving new model with eval reward ", scores_eval[end])
+                end
+                saver = tf.train.Saver()
+                train.save(saver, graph.sess, solver.logdir*"weights.jld")
+                model_saved = true
+                saved_mean_reward = scores_eval[end]
+            end
+        end
+    end
+    if model_saved
+        if solver.verbose
+            println("Restore model with eval reward ", saved_mean_reward)
         end
     end
     return
