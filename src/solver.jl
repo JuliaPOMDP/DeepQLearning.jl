@@ -119,7 +119,7 @@ function dqn_train(solver::DeepQLearningSolver,
         end
 
         if t > solver.train_start && t%solver.save_freq == 0
-            if scores_eval[end] > saved_mean_reward
+            if scores_eval[end] >= saved_mean_reward
                 if solver.verbose
                     println("Saving new model with eval reward ", scores_eval[end])
                 end
@@ -316,7 +316,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
             end
         end
         if t > solver.train_start && t%solver.save_freq == 0
-            if scores_eval[end] > saved_mean_reward
+            if scores_eval[end] >= saved_mean_reward
                 if solver.verbose
                     println("Saving new model with eval reward ", scores_eval[end])
                 end
