@@ -7,11 +7,11 @@ function JLD.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSolve
     train.save(saver, policy.sess, weights_file)
 end
 
-function restore(;problem_file::String="problem.jld", weights_file::String="weights.jld")
+function restore(;problem_file::String="problem.jld", weights_file::String="weights.jld", graph=Graph())
     problem = load(problem_file)
     solver = problem["solver"]
     env = problem["env"]
-    train_graph = build_graph(solver, env)
+    train_graph = build_graph(solver, env, graph)
     policy = restore_policy(env, solver, train_graph, weights_file)
     return policy
 end

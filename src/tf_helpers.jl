@@ -20,8 +20,7 @@ end
 """
 Reset the graph and open a new session
 """
-function init_session()
-    g = Graph()
+function init_session(g = Graph())    
     tf.set_def_graph(g)
     sess = Session(g)
     return sess

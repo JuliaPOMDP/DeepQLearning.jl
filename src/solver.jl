@@ -88,8 +88,11 @@ function dqn_train(solver::DeepQLearningSolver,
         end
 
         if t%solver.eval_freq == 0
-            scores_eval = eval_q(graph, env, n_eval=solver.num_ep_eval,
-                                                  max_episode_length=solver.max_episode_length)
+            scores_eval = eval_q(graph,
+                                 env,
+                                 n_eval=solver.num_ep_eval,
+                                 max_episode_length=solver.max_episode_length,
+                                 verbose= solver.verbose)
         end
 
         if t%solver.log_freq == 0
@@ -143,7 +146,8 @@ Evaluate a Q network
 function eval_q(graph::TrainGraph,
                 env::AbstractEnvironment;
                 n_eval::Int64=100,
-                max_episode_length::Int64=100)
+                max_episode_length::Int64=100,
+                verbose::Bool=false)
     # Evaluation
     avg_r = 0
     for i=1:n_eval
@@ -167,7 +171,9 @@ function eval_q(graph::TrainGraph,
         # println(r_tot)
 
     end
-    println("Evaluation ... Avg Reward ", avg_r/n_eval)
+    if verbose
+        println("Evaluation ... Avg Reward ", avg_r/n_eval)
+    end
     return  avg_r /= n_eval
 end
 
@@ -281,7 +287,8 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
                                      env,
                                      graph.sess,
                                      n_eval=solver.num_ep_eval,
-                                     max_episode_length=solver.max_episode_length)
+                                     max_episode_length=solver.max_episode_length,
+                                     verbose = solver.verbose)
             # reset hidden state
             graph.lstm_policy.state_val = hidden_state
         end
@@ -332,7 +339,8 @@ function eval_lstm(policy::LSTMPolicy,
                 env::AbstractEnvironment,
                 sess;
                 n_eval::Int64=100,
-                max_episode_length::Int64=100)
+                max_episode_length::Int64=100,
+                verbose::Bool=false)
     # Evaluation
     avg_r = 0
     for i=1:n_eval
@@ -356,6 +364,8 @@ function eval_lstm(policy::LSTMPolicy,
         avg_r += r_tot
         # println(r_tot)
     end
-    println("Evaluation ... Avg Reward ", avg_r/n_eval)
+    if verbose
+        println("Evaluation ... Avg Reward ", avg_r/n_eval)
+    end
     return  avg_r /= n_eval
 end

@@ -133,8 +133,8 @@ function get_action(graph::TrainGraph, env::AbstractEnvironment, o::Array{Float6
     return actions(env)[ai] # inefficient
 end
 
-function build_graph(solver::DeepQLearningSolver, env::AbstractEnvironment)
-    sess = init_session()
+function build_graph(solver::DeepQLearningSolver, env::AbstractEnvironment, graph=Graph())
+    sess = init_session(graph)
     s, a, sp, r, done_mask, importance_weights = build_placeholders(env)
     q = build_q(s, solver.arch, env, scope=Q_SCOPE, dueling=solver.dueling)
     qp = build_q(sp, solver.arch, env, scope=Q_SCOPE, reuse=true, dueling=solver.dueling)
@@ -260,8 +260,8 @@ function build_doubleq_loss(env::AbstractEnvironment,
 end
 
 
-function build_graph(solver::DeepRecurrentQLearningSolver, env::AbstractEnvironment)
-    sess = init_session()
+function build_graph(solver::DeepRecurrentQLearningSolver, env::AbstractEnvironment, graph=Graph())
+    sess = init_session(graph)
     s, a, sp, r, done_mask, trace_mask, w = build_placeholders(env, solver.trace_length)
     q, hq_in, hq_out = build_recurrent_q_network(s,
                                                  solver.arch.convs,
@@ -306,6 +306,6 @@ function build_graph(solver::DeepRecurrentQLearningSolver, env::AbstractEnvironm
     return RecurrentTrainGraph(sess, s, a, sp, r, done_mask, trace_mask, w,
                                q, hq_in, hq_out,
                                qp, hqp_in, hqp_out,
-                               target_q, target_hq_in, target_hq_out, 
+                               target_q, target_hq_in, target_hq_out,
                                loss, td_errors, train_op, grad_norm, update_op, lstm_policy)
 end
