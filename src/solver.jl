@@ -12,8 +12,8 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     # init variables
     run(train_graph.sess, global_variables_initializer())
     #TODO save the training log somewhere
-    dqn_train(solver, env, train_graph, replay)
     policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
+    dqn_train(solver, env, train_graph, policy, replay)
     return policy
 end
 
@@ -26,6 +26,7 @@ end
 function dqn_train(solver::DeepQLearningSolver,
                    env::AbstractEnvironment,
                    graph::TrainGraph,
+                   policy::DQNPolicy,
                    replay::Union{ReplayBuffer, PrioritizedReplayBuffer})
     summary_writer = tf.summary.FileWriter(solver.logdir)
     obs = reset(env)
@@ -39,19 +40,9 @@ function dqn_train(solver::DeepQLearningSolver,
     weights = ones(solver.batch_size)
     model_saved = false
     for t=1:solver.max_steps
-        if rand(solver.rng) > eps
-            action = get_action(graph, env, obs)
-        else
-            action = sample_action(env)
-        end
-        # update epsilon
-        if t < solver.eps_fraction*solver.max_steps
-            eps = 1 - (1 - solver.eps_end)/(solver.eps_fraction*solver.max_steps)*t # decay
-        else
-            eps = solver.eps_end
-        end
-        ai = action_index(env.problem, action)
-        op, rew, done, info = step!(env, action)
+        act = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
+        ai = action_index(env.problem, act)
+        op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
         add_exp!(replay, exp)
         obs = op
