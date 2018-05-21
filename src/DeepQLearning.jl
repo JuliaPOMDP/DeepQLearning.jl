@@ -39,13 +39,17 @@ export DeepQLearningSolver,
        LSTMPolicy,
        reset_hidden_state!,
        get_action,
+       get_value,
        get_action!,
+       get_value!,
        eval_q,
        eval_lstm,
        action,
        solve,
        save,
-       restore
+       restore,
+       linear_epsilon_greedy,
+       update_epsilon
 
 include("tf_helpers.jl")
 

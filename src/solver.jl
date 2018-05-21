@@ -34,13 +34,14 @@ function dqn_train(solver::DeepQLearningSolver,
     step = 0
     rtot = 0
     episode_rewards = Float64[0.0]
+    episode_steps = Float64[]
     saved_mean_reward = 0.
     scores_eval = 0.
     eps = 1.0
     weights = ones(solver.batch_size)
     model_saved = false
     for t=1:solver.max_steps
-        act = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
+        act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
         ai = action_index(env.problem, act)
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
@@ -50,6 +51,7 @@ function dqn_train(solver::DeepQLearningSolver,
         episode_rewards[end] += rew
         if done || step >= solver.max_episode_length
             obs = reset(env)
+            push!(episode_steps, step)
             push!(episode_rewards, 0.0)
             done = false
             step = 0
@@ -57,6 +59,7 @@ function dqn_train(solver::DeepQLearningSolver,
         end
         num_episodes = length(episode_rewards)
         avg100_reward = mean(episode_rewards[max(1, length(episode_rewards)-101):end])
+        avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
         if t%solver.train_freq == 0
             if solver.prioritized_replay
                 s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
@@ -93,8 +96,10 @@ function dqn_train(solver::DeepQLearningSolver,
             tb_loss = logg_scalar(loss_val, "loss")
             tb_tderr = logg_scalar(mean(td_errors), "mean_td_error")
             tb_grad = logg_scalar(grad_val, "grad_norm")
-            tb_epreward = logg_scalar(episode_rewards[end], "episode_reward")
+            tb_epreward = logg_scalar(episode_rewards[end-1], "episode_reward")
             tb_eps = logg_scalar(eps, "epsilon")
+            tb_avgs = logg_scalar(avg100_steps, "avg_steps")
+            tb_epstep = logg_scalar(episode_steps[end], "episode_steps")
             write(summary_writer, tb_avgr, t)
             write(summary_writer, tb_evalr, t)
             write(summary_writer, tb_loss, t)
@@ -102,6 +107,8 @@ function dqn_train(solver::DeepQLearningSolver,
             write(summary_writer, tb_grad, t)
             write(summary_writer, tb_epreward, t)
             write(summary_writer, tb_eps, t)
+            write(summary_writer, tb_epstep, t)
+            write(summary_writer, tb_avgs, t)
             if solver.verbose
                 logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3f | Grad %2.3f",
                                  t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
