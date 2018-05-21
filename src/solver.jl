@@ -82,11 +82,16 @@ function dqn_train(solver::DeepQLearningSolver,
         end
 
         if t%solver.eval_freq == 0
-            scores_eval = eval_q(graph,
-                                 env,
-                                 n_eval=solver.num_ep_eval,
-                                 max_episode_length=solver.max_episode_length,
-                                 verbose= solver.verbose)
+            scores_eval = evaluation(solver.evaluation_policy, 
+                                 policy, env,                                  
+                                 solver.num_ep_eval,
+                                 solver.max_episode_length,
+                                 solver.verbose)
+            # scores_eval = eval_q(graph,
+            #                      env,
+            #                      n_eval=solver.num_ep_eval,
+            #                      max_episode_length=solver.max_episode_length,
+            #                      verbose= solver.verbose)
         end
 
         if t%solver.log_freq == 0
@@ -96,21 +101,25 @@ function dqn_train(solver::DeepQLearningSolver,
             tb_loss = logg_scalar(loss_val, "loss")
             tb_tderr = logg_scalar(mean(td_errors), "mean_td_error")
             tb_grad = logg_scalar(grad_val, "grad_norm")
-            tb_epreward = logg_scalar(episode_rewards[end-1], "episode_reward")
             tb_eps = logg_scalar(eps, "epsilon")
             tb_avgs = logg_scalar(avg100_steps, "avg_steps")
-            tb_epstep = logg_scalar(episode_steps[end], "episode_steps")
+            if length(episode_rewards) > 1
+                tb_epreward = logg_scalar(episode_rewards[end-1], "episode_reward")
+                write(summary_writer, tb_epreward, t)
+            end
+            if length(episode_steps) >= 1
+                tb_epstep = logg_scalar(episode_steps[end], "episode_steps")
+                write(summary_writer, tb_epstep, t)
+            end
             write(summary_writer, tb_avgr, t)
             write(summary_writer, tb_evalr, t)
             write(summary_writer, tb_loss, t)
             write(summary_writer, tb_tderr, t)
             write(summary_writer, tb_grad, t)
-            write(summary_writer, tb_epreward, t)
             write(summary_writer, tb_eps, t)
-            write(summary_writer, tb_epstep, t)
             write(summary_writer, tb_avgs, t)
             if solver.verbose
-                logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3f | Grad %2.3f",
+                logg = @sprintf("%5d / %5d eps %0.3e |  avgR %1.3e | Loss %2.3e | Grad %2.3e",
                                  t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
                 println(logg)
             end
@@ -135,44 +144,6 @@ function dqn_train(solver::DeepQLearningSolver,
         end
     end
     return
-end
-
-
-"""
-Evaluate a Q network
-"""
-function eval_q(graph::TrainGraph,
-                env::AbstractEnvironment;
-                n_eval::Int64=100,
-                max_episode_length::Int64=100,
-                verbose::Bool=false)
-    # Evaluation
-    avg_r = 0
-    for i=1:n_eval
-        done = false
-        r_tot = 0.0
-        step = 0
-        obs = reset(env)
-        # println("start at t=0 obs $obs")
-        # println("Start state $(env.state)")
-        while !done && step <= max_episode_length
-            action =  get_action(graph, env, obs)
-            # println(action)
-            obs, rew, done, info = step!(env, action)
-            # println("state ", env.state, " action ", a)
-            # println("Reward ", rew)
-            # println(obs, " ", done, " ", info, " ", step)
-            r_tot += rew
-            step += 1
-        end
-        avg_r += r_tot
-        # println(r_tot)
-
-    end
-    if verbose
-        println("Evaluation ... Avg Reward ", avg_r/n_eval)
-    end
-    return  avg_r /= n_eval
 end
 
 

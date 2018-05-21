@@ -49,7 +49,8 @@ export DeepQLearningSolver,
        save,
        restore,
        linear_epsilon_greedy,
-       update_epsilon
+       update_epsilon,
+       basic_evaluation
 
 include("tf_helpers.jl")
 
@@ -121,6 +122,7 @@ end
     rng::AbstractRNG = MersenneTwister(0)
     logdir::String = "log"
     save_freq::Int64 = 10000
+    evaluation_policy::Function = basic_evaluation
     exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)
     verbose::Bool = true
 end
@@ -131,6 +133,7 @@ include("episode_replay.jl")
 include("prioritized_experience_replay.jl")
 include("policy.jl")
 include("exploration_policy.jl")
+include("evaluation_policy.jl")
 include("graph.jl")
 include("q_network.jl")
 include("solver.jl")
