@@ -5,5 +5,4 @@ StatsBase
 Parameters 
 POMDPs
 POMDPToolbox
-DeepRL
 JLD
