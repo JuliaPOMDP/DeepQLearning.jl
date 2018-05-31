@@ -1,7 +1,3 @@
-using DeepQLearning
-
-include("test_env.jl")
-
 rng = MersenneTwister(1)
 mdp = TestMDP((5,5), 4, 6)
 solver = DeepQLearningSolver(max_steps=10000, lr=0.005, eval_freq=1000,num_ep_eval=100,
@@ -12,7 +8,7 @@ DeepQLearning.save(solver, policy, weights_file=solver.logdir*"/weights.jld", pr
 
 
 mdp = TestMDP((10,10), 4, 6)
-solver = DeepQLearningSolver(max_steps=10000, lr=0.005, eval_freq=1000,num_ep_eval=100,
+solver = DeepQLearningSolver(max_steps=100000, lr=0.005, eval_freq=1000,num_ep_eval=100,
                             arch = QNetworkArchitecture(conv=[], fc=[8]),
                             double_q = false, dueling=false, verbose=false, logdir="log2")
 policy = solve(solver, mdp)

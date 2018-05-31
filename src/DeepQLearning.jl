@@ -126,7 +126,7 @@ end
     rng::AbstractRNG = MersenneTwister(0)
     logdir::String = "log"
     save_freq::Int64 = 10000
-    evaluation_policy::Function = basic_evaluation
+    evaluation_policy::Any = basic_evaluation
     exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)
     verbose::Bool = true
 end
