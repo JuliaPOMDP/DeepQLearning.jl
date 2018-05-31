@@ -19,6 +19,7 @@ export DeepQLearningSolver,
        conv2d,
        mlp,
        cnn_to_mlp,
+       rnn,
        get_train_vars_by_name,
        init_session,
        logg_scalar,
@@ -93,6 +94,9 @@ end
 - `train_start::Int64` number of steps used to fill in the replay buffer initially default = 200
 - `grad_clip::Bool` enables gradient clipping default = true
 - `clip_val::Float64` maximum value for the grad norm default = 10.0
+- `save_freq::Int64` save the model every `save_freq` steps, default = 1000
+- `evaluation_policy::Function = basic_evaluation` function use to evaluate the policy every `eval_freq` steps, the default is a rollout that return the undiscounted average reward 
+- `exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)` exploration strategy (default is epsilon greedy with linear decay)
 - `rng::AbstractRNG` random number generator default = MersenneTwister(0)
 - `verbose::Bool` default = true
 """

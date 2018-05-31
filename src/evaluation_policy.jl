@@ -13,7 +13,7 @@ end
 
 
 # Examples  
-
+# just simulate the policy, return the average non discounted reward
 function basic_evaluation(policy::DQNPolicy, env::AbstractEnvironment, n_eval::Int64, max_episode_length::Int64, verbose::Bool)
     avg_r = 0 
     for i=1:n_eval

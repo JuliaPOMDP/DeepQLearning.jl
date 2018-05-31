@@ -11,7 +11,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     populate_replay_buffer!(replay, env, max_pop=solver.train_start)
     # init variables
     run(train_graph.sess, global_variables_initializer())
-    #TODO save the training log somewhere
+    # train model
     policy = DQNPolicy(train_graph.q, train_graph.s, env, train_graph.sess)
     dqn_train(solver, env, train_graph, policy, replay)
     return policy
@@ -87,11 +87,6 @@ function dqn_train(solver::DeepQLearningSolver,
                                  solver.num_ep_eval,
                                  solver.max_episode_length,
                                  solver.verbose)
-            # scores_eval = eval_q(graph,
-            #                      env,
-            #                      n_eval=solver.num_ep_eval,
-            #                      max_episode_length=solver.max_episode_length,
-            #                      verbose= solver.verbose)
         end
 
         if t%solver.log_freq == 0
@@ -141,6 +136,8 @@ function dqn_train(solver::DeepQLearningSolver,
     if model_saved
         if solver.verbose
             println("Restore model with eval reward ", saved_mean_reward)
+            saver = tf.train.Saver()
+            train.restore(saver, graph.sess, solver.logdir*"weights.jld")
         end
     end
     return
@@ -164,7 +161,7 @@ function POMDPs.solve(solver::DeepRecurrentQLearningSolver, env::AbstractEnviron
     populate_replay_buffer!(replay, env, max_pop=solver.train_start)
     # init variables
     run(train_graph.sess, global_variables_initializer())
-    #TODO save the training log somewhere
+    # train model
     drqn_train(solver, env, train_graph, replay)
     policy = train_graph.lstm_policy
     policy.sess = train_graph.sess
