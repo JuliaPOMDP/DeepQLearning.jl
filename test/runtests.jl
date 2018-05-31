@@ -42,7 +42,7 @@ policy = solve(solver, mdp)
 avg_test = eval_lstm(policy, MDPEnvironment(mdp), policy.sess)
 @test avg_test >= 1.5
 
-solver = DeepRecurrentQLearningSolver(max_steps=10000, lr=0.005, eval_freq=2000, num_ep_eval=100,
+solver = DeepRecurrentQLearningSolver(max_steps=20000, lr=0.005, eval_freq=2000, num_ep_eval=100,
                             arch = RecurrentQNetworkArchitecture(fc_in=[8], lstm_size=12, fc_out=[8]),
                             save_freq = 2000, log_freq = 500,
                             double_q=false, dueling=false, grad_clip=false, rng=rng)
@@ -52,4 +52,4 @@ avg_gridworld = eval_lstm(policy, MDPEnvironment(mdp), policy.sess)
 @test avg_gridworld > 1.5
 
 include("multigraph_solve.jl")
-include("mutligraph_test.jl")
+include("multigraph_load.jl")
