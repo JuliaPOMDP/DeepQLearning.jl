@@ -1,10 +1,10 @@
 # DeepQLearning
 
-[![Build Status](https://travis-ci.org/MaximeBouton/DeepQLearning.jl.svg?branch=master)](https://travis-ci.org/MaximeBouton/DeepQLearning.jl)
+[![Build Status](https://travis-ci.org/JuliaPOMDP/DeepQLearning.jl.svg?branch=master)](https://travis-ci.org/JuliaPOMDP/DeepQLearning.jl)
 
-[![Coverage Status](https://coveralls.io/repos/MaximeBouton/DeepQLearning.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/MaximeBouton/DeepQLearning.jl?branch=master)
+[![Coverage Status](https://coveralls.io/repos/JuliaPOMDP/DeepQLearning.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/JuliaPOMDP/DeepQLearning.jl?branch=master)
 
-[![codecov.io](http://codecov.io/github/MaximeBouton/DeepQLearning.jl/coverage.svg?branch=master)](http://codecov.io/github/MaximeBouton/DeepQLearning.jl?branch=master)
+[![codecov.io](http://codecov.io/github/JuliaPOMDP/DeepQLearning.jl/coverage.svg?branch=master)](http://codecov.io/github/JuliaPOMDP/DeepQLearning.jl?branch=master)
 
 This package provides an implementation of the Deep Q learning algorithm for solving MDPs. For more information see https://arxiv.org/pdf/1312.5602.pdf.
 It uses POMDPs.jl and TensorFlow.jl
@@ -14,6 +14,7 @@ It supports the following innovations:
 - Prioritized replay https://arxiv.org/pdf/1511.05952.pdf
 - Dueling https://arxiv.org/pdf/1511.06581.pdf
 - Double Q http://www.aaai.org/ocs/index.php/AAAI/AAAI16/paper/download/12389/11847
+- Recurrent Q Learning
 
 ## Installation
 
@@ -44,8 +45,8 @@ r_tot = simulate(sim, mdp, policy)
 println("Total discounted reward for 1 simulation: $r_tot")
 ```
 
-**Fields:**
-- `arch::QNetworkArchitecture`Specify the architecture of the Q network default = QNetworkArchitecture(conv=[], fc=[])
+**Fields of the Q Learning solver:**
+- `arch::QNetworkArchitecture` Specify the architecture of the Q network default = QNetworkArchitecture(conv=[], fc=[])
 - `lr::Float64` learning rate default = 0.005
 - `max_steps::Int64` total number of training step default = 1000
 - `target_update_freq::Int64` frequency at which the target network is updated default = 500
@@ -67,11 +68,13 @@ println("Total discounted reward for 1 simulation: $r_tot")
 - `train_start::Int64` number of steps used to fill in the replay buffer initially default = 200
 - `grad_clip::Bool` enables gradient clipping default = true
 - `clip_val::Float64` maximum value for the grad norm default = 10.0
+- `save_freq::Int64` save the model every `save_freq` steps, default = 1000
+- `evaluation_policy::Function = basic_evaluation` function use to evaluate the policy every `eval_freq` steps, the default is a rollout that return the undiscounted average reward 
+- `exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)` exploration strategy (default is epsilon greedy with linear decay)
 - `rng::AbstractRNG` random number generator default = MersenneTwister(0)
 - `verbose::Bool` default = true
 
 
 ## Work in progress
 
-- Deep Recurrent Q Network
 - Policy correction

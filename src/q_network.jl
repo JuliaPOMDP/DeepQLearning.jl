@@ -46,15 +46,15 @@ function build_recurrent_q_network(inputs::Tensor,
     c = placeholder(Float32, shape=[-1, lstm_size])
     h =  placeholder(Float32, shape=[-1, lstm_size])
     state_in = LSTMStateTuple(c, h)
-    out, state_out = tf.nn.rnn(rnn_cell,
-                               out,
-                               initial_state=state_in,
-                               reuse=reuse,
-                               scope=scope)
+    out, state_out = rnn(rnn_cell,
+                        out,
+                        initial_state=state_in,
+                        reuse=reuse,
+                        scope=scope)
     out = stack(out, axis=2)
     # output with dueling
     out = reshape(out, (-1, lstm_size))
-    out = cnn_to_mlp(out, [], hiddens_out, num_output, scope=scope, reuse=reuse, dueling=dueling, scope=scope)
+    out = cnn_to_mlp(out, [], hiddens_out, num_output, scope=scope, reuse=reuse, dueling=dueling, scope=scope*"/out")
     #END OF Q NETWORK GRAPH
     return out, state_in, state_out
 end

@@ -5,7 +5,8 @@
 
 import TensorFlow: tanh
 import TensorFlow.nn: sigmoid, zero_state
-import TensorFlow.nn.rnn_cell: get_input_dim, LSTMStateTuple
+import TensorFlow.nn.rnn_cell: get_input_dim, LSTMStateTuple, LSTMCell
+# import TensorFlow.nn: rnn
 
 ########### General Helpers ###################################
 
@@ -64,8 +65,6 @@ function compute_flat_dim(dims::Vector{Nullable{Int64}})
     end
     return res
 end
-
-
 
 """
 flatten an array or a tensor and keep the batch size
@@ -158,17 +157,6 @@ function conv2d(inputs::Tensor, num_filters::Int64, kernel_size::Vector{Int64};
     return a
 end
 
-function conv2d(x, W)
-    nn.conv2d(x, W, [1, 1, 1, 1], "SAME")
-end
-
-"""
-    Build a max pooling layer, divides the height and width of the input by 2
-"""
-function max_pool_2x2(x)
-    nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], "SAME")
-end
-
 """
     Build a multi-layer perceptron (mlp) model given the list of nodes in each layer and the input tensor
 """
@@ -242,7 +230,7 @@ end
 # Modify the methods for LSTM and dynamic_rnn to reuse weights.
 # this might break if there are changes in tensorflow.jl , maybe it should be a PR
 
-function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false, scope="")
+function (cell::nn.rnn_cell.LSTMCell)(input::Tensor, state::LSTMStateTuple, input_dim=-1; reuse=false, scope="")
     N = get_input_dim(input, input_dim) + cell.hidden_size
     T = eltype(state)
     input = Tensor(input)
@@ -275,7 +263,7 @@ function (cell::nn.rnn_cell.LSTMCell)(input, state, input_dim=-1; reuse=false, s
 end
 
 # modify the function from tensorflow.jl to support parameter reuse and scoping
-function tf.nn.rnn(cell, inputs::Vector, sequence_length=nothing; initial_state=nothing, dtype=nothing, scope="", reuse=false)
+function rnn(cell, inputs::Vector, sequence_length=nothing; initial_state=nothing, dtype=nothing, scope="", reuse=false)
     if initial_state === nothing
         initial_state = zero_state(cell, first(inputs), dtype)
     end
@@ -299,22 +287,7 @@ function tf.nn.rnn(cell, inputs::Vector, sequence_length=nothing; initial_state=
     return outputs, state
 end
 
-function tf.nn.rnn(cell, inputs::tf.Tensor, sequence_length=nothing; time_major=false, kwargs...)
+function rnn(cell, inputs::tf.Tensor, sequence_length=nothing; time_major=false, kwargs...)
     input_list = tf.unstack(inputs; axis = (time_major ? 1 : 2))
-    tf.nn.rnn(cell, input_list, sequence_length; kwargs...)
-end
-
-
-
-
-# functions from tensorflow.jl tutorial, no control over the initialization
-function weight_variable(shape)
-    initial = map(Float32, rand(Normal(0, .001), shape...))
-    return Variable(initial)
-end
-
-
-function bias_variable(shape)
-    initial = zeros(shape...)
-    return Variable(initial)
+    rnn(cell, input_list, sequence_length; kwargs...)
 end
