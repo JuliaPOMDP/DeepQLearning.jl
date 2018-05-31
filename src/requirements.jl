@@ -6,5 +6,7 @@
     @req initial_state(::P, ::AbstractRNG)
     @req convert_o(::Type{Vector{Float64}}, ::S, ::P)
     @req action_index(::P, ::A)
+    @req actions(::P)
+    @req discount(::P)
 
 end
