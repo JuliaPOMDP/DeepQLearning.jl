@@ -1,1 +1,9 @@
 julia 0.6
+TensorFlow 0.9.1
+Distributions 
+StatsBase
+Parameters 
+POMDPs
+POMDPToolbox
+DeepRL
+JLD
