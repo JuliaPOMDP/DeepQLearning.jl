@@ -1,4 +1,4 @@
-mutable struct DQNPolicy <: Policy
+mutable struct DQNPolicy <: AbstractNNPolicy
     q::Tensor # Q network
     s::Tensor # placeholder
     env::AbstractEnvironment
@@ -55,7 +55,7 @@ function POMDPs.value(policy::DQNPolicy, s)
 end
 
 
-mutable struct LSTMPolicy <: Policy
+mutable struct LSTMPolicy <: AbstractNNPolicy
     q::Tensor # Q network
     state::LSTMStateTuple
     s::Tensor # placeholder
@@ -89,6 +89,7 @@ end
 function get_action!(policy::LSTMPolicy, o::Array{Float64}, sess) # update hidden state
     # cannot take a batch of observations
     o = reshape(o, (1, 1, size(o)...))
+    TensorFlow.set_def_graph(policy.sess.graph)
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
     q_val, state_val = run(sess, [policy.q, policy.state], feed_dict)
     policy.state_val = state_val
@@ -104,6 +105,7 @@ end
 function get_value(policy::LSTMPolicy, o::Array{Float64}, sess) # update hidden state
     # cannot take a batch of observations
     o = reshape(o, (1, 1, size(o)...))
+    TensorFlow.set_def_graph(policy.sess.graph)
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
     q_val, state_val = run(sess, [policy.q, policy.state], feed_dict)
     return q_val
@@ -112,6 +114,7 @@ end
 function get_value!(policy::LSTMPolicy, o::Array{Float64}, sess) # update hidden state
     # cannot take a batch of observations
     o = reshape(o, (1, 1, size(o)...))
+    TensorFlow.set_def_graph(policy.sess.graph)
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
     q_val, state_val = run(sess, [policy.q, policy.state], feed_dict)
     policy.state_val = state_val
@@ -119,6 +122,7 @@ function get_value!(policy::LSTMPolicy, o::Array{Float64}, sess) # update hidden
 end
 
 function reset_hidden_state!(policy::LSTMPolicy)# could use zero_state from tf
+    TensorFlow.set_def_graph(policy.sess.graph)
     hidden_size = get(get_shape(policy.state_ph.c).dims[end])
     init_c = zeros(1, hidden_size)
     init_h = zeros(1, hidden_size)

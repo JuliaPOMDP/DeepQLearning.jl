@@ -3,7 +3,12 @@ function JLD.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSolve
                   weights_file::String = "weights.jld",
                   problem_file::String = "problem.jld")
     saver = tf.train.Saver()
-    save(problem_file, "solver", solver, "env", policy.env)
+    warn("cannot save exploration policy")
+    warn("cannot save evaluation function")
+    solver_ = deepcopy(solver)
+    solver_.exploration_policy = nothing
+    solver_.evaluation_policy = nothing
+    save(problem_file, "solver", solver_, "env", policy.env)
     train.save(saver, policy.sess, weights_file)
 end
 
