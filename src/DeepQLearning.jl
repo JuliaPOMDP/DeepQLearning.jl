@@ -100,7 +100,7 @@ end
 - `rng::AbstractRNG` random number generator default = MersenneTwister(0)
 - `verbose::Bool` default = true
 """
-@with_kw mutable struct DeepQLearningSolver
+@with_kw mutable struct DeepQLearningSolver <: Solver
     arch::QNetworkArchitecture = QNetworkArchitecture(conv=[], fc=[])
     lr::Float64 = 0.005
     max_steps::Int64 = 1000

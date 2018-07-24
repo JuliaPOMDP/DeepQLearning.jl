@@ -4,7 +4,7 @@
     specify an architecture with the following form:
     [CONV]-[FC]-[LSTM]-[FC]
 """
-@with_kw mutable struct RecurrentQNetworkArchitecture
+@with_kw mutable struct RecurrentQNetworkArchitecture 
    fc_in::Vector{Int64} = Vector{Int64}[]
    convs::Vector{Tuple{Int64, Vector{Int64}, Int64}} = Vector{Tuple{Int64, Tuple{Int64, Int64}, Int64}}[]
    fc_out::Vector{Int64} = Vector{Int64}[]
@@ -42,7 +42,7 @@ Deep Q learning with a recurrent module to solve POMDPs
 - `rng::AbstractRNG` random number generator default = MersenneTwister(0)
 - `verbose::Bool` default = true
 """
-@with_kw mutable struct DeepRecurrentQLearningSolver
+@with_kw mutable struct DeepRecurrentQLearningSolver <: Solver
     arch::RecurrentQNetworkArchitecture = RecurrentQNetworkArchitecture()
     lr::Float64 = 0.001
     max_steps::Int64 = 1000
