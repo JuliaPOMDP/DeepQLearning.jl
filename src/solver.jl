@@ -26,7 +26,7 @@ end
 function dqn_train(solver::DeepQLearningSolver,
                    env::AbstractEnvironment,
                    graph::TrainGraph,
-                   policy::DQNPolicy,
+                   policy::AbstractNNPolicy,
                    replay::Union{ReplayBuffer, PrioritizedReplayBuffer})
     summary_writer = tf.summary.FileWriter(solver.logdir)
     obs = reset(env)

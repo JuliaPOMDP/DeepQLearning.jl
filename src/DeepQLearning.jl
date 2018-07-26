@@ -13,6 +13,8 @@ export DeepQLearningSolver,
        QNetworkArchitecture,
        DeepRecurrentQLearningSolver,
        RecurrentQNetworkArchitecture,
+       DeepCorrectionSolver,
+       lowfi_values,
        # tf helpers
        flatten,
        dense,
@@ -37,6 +39,7 @@ export DeepQLearningSolver,
        # training
        TrainGraph,
        DQNPolicy,
+       DeepCorrectionPolicy,
        LSTMPolicy,
        reset_hidden_state!,
        get_action,
@@ -142,4 +145,5 @@ include("graph.jl")
 include("q_network.jl")
 include("solver.jl")
 include("saver.jl")
+include("deep_corrections.jl")
 end # module
