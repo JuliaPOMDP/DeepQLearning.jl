@@ -13,8 +13,8 @@ export DeepQLearningSolver,
        QNetworkArchitecture,
        DeepRecurrentQLearningSolver,
        RecurrentQNetworkArchitecture,
-       DeepCorrectionSolver,
-       lowfi_values,
+       AbstractNNPolicy,
+
        # tf helpers
        flatten,
        dense,
@@ -55,10 +55,12 @@ export DeepQLearningSolver,
        linear_epsilon_greedy,
        update_epsilon,
        basic_evaluation
-
+       
 include("tf_helpers.jl")
 
+
 abstract type AbstractNNPolicy <: Policy end
+
 
 """
     QNetworkArchitecture

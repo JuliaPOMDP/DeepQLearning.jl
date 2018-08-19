@@ -182,6 +182,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
     episode = DQExperience[]
     sizehint!(episode, solver.max_episode_length)
     episode_rewards = Float64[0.0]
+    episode_steps = Float64[]
     saved_mean_reward = 0.
     model_saved = false
     scores_eval = 0.0
@@ -214,6 +215,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
             episode = DQExperience[] # empty episode
             obs = reset(env)
             reset_hidden_state!(graph.lstm_policy)
+            push!(episode_steps, step)
             push!(episode_rewards, 0.0)
             done = false
             step = 0
@@ -221,6 +223,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
         end
         num_episodes = length(episode_rewards)
         avg100_reward = mean(episode_rewards[max(1, length(episode_rewards)-101):end])
+        avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
         if t%solver.train_freq == 0
             s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = sample(replay)
             feed_dict = Dict(graph.s => s_batch,
@@ -237,7 +240,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
                              graph.target_hq_in.c => init_c,
                              graph.target_hq_in.h => init_h
                              )
-            loss_val, td_errors_val, grad_val, _ = run(graph.sess,
+            loss_val, td_errors, grad_val, _ = run(graph.sess,
                                                        [graph.loss, graph.td_errors, graph.grad_norm, graph.train_op],
                                                        feed_dict)
         end
@@ -260,21 +263,28 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
         end
 
         if t%solver.log_freq == 0
-            # log to tensorboard
             tb_avgr = logg_scalar(avg100_reward, "avg_reward")
             tb_evalr = logg_scalar(scores_eval[end], "eval_reward")
             tb_loss = logg_scalar(loss_val, "loss")
-            tb_tderr = logg_scalar(mean(td_errors_val), "mean_td_error")
+            tb_tderr = logg_scalar(mean(td_errors), "mean_td_error")
             tb_grad = logg_scalar(grad_val, "grad_norm")
-            tb_epreward = logg_scalar(episode_rewards[end], "episode_reward")
             tb_eps = logg_scalar(eps, "epsilon")
+            tb_avgs = logg_scalar(avg100_steps, "avg_steps")
+            if length(episode_rewards) > 1
+                tb_epreward = logg_scalar(episode_rewards[end-1], "episode_reward")
+                write(summary_writer, tb_epreward, t)
+            end
+            if length(episode_steps) >= 1
+                tb_epstep = logg_scalar(episode_steps[end], "episode_steps")
+                write(summary_writer, tb_epstep, t)
+            end
             write(summary_writer, tb_avgr, t)
             write(summary_writer, tb_evalr, t)
             write(summary_writer, tb_loss, t)
             write(summary_writer, tb_tderr, t)
             write(summary_writer, tb_grad, t)
-            write(summary_writer, tb_epreward, t)
             write(summary_writer, tb_eps, t)
+            write(summary_writer, tb_avgs, t)
             if  solver.verbose
                 logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3f | Grad %2.3f",
                                  t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
