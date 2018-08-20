@@ -21,6 +21,7 @@ function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_
         r_tot = 0.0
         step = 0
         obs = reset(env)
+        reset_hidden_state!(policy)
         while !done && step <= max_episode_length
             act = get_action(policy, obs)
             obs, rew, done, info = step!(env, act)
@@ -34,4 +35,3 @@ function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_
     end
     return  avg_r /= n_eval
 end
-

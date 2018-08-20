@@ -48,7 +48,7 @@ Deep Q learning with a recurrent module to solve POMDPs
     max_steps::Int64 = 1000
     target_update_freq::Int64 = 500
     batch_size::Int64 = 32
-    trace_length = 6
+    trace_length = 10
     train_freq::Int64  = 4
     log_freq::Int64 = 100
     eval_freq::Int64 = 100
@@ -65,5 +65,7 @@ Deep Q learning with a recurrent module to solve POMDPs
     rng::AbstractRNG = MersenneTwister(0)
     logdir::String = "log"
     save_freq::Int64 = 10000
+    evaluation_policy::Any = basic_evaluation
+    exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)
     verbose::Bool = true
 end

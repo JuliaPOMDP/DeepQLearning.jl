@@ -14,11 +14,19 @@ function get_action(policy::DQNPolicy, o::Array{Float64})
     return actions(policy.env)[ai]
 end
 
+function get_action!(policy::DQNPolicy, o::Array{Float64})
+    return get_action(policy, o)
+end
+
 function get_value(policy::DQNPolicy, o::Array{Float64})
     o = reshape(o, (1, size(o)...))
     TensorFlow.set_def_graph(policy.sess.graph)
     q_val = run(policy.sess, policy.q, Dict(policy.s => o) )
     return q_val
+end
+
+function get_value!(policy::DQNPolicy, o::Array{Float64})
+    return get_value(policy, o)
 end
 
 function get_value(sess, q, o)
@@ -51,7 +59,11 @@ function POMDPs.value(policy::DQNPolicy, s)
     else
         obs = convert_s(Array{Float64}, s, policy.env.problem)
     end
-    return get_value(policy, obs)
+    return get_value!(policy, obs)
+end
+
+function reset_hidden_state!(policy::DQNPolicy)
+    # no hidden_state
 end
 
 
@@ -86,37 +98,48 @@ function LSTMPolicy(sess, env, arch, dueling)
     return LSTMPolicy(q1, q1_state, s1, q1_init, state_val, env, sess)
 end
 
-function get_action!(policy::LSTMPolicy, o::Array{Float64}, sess) # update hidden state
+function get_action!(policy::LSTMPolicy, o::Array{Float64}) # update hidden state
+        # cannot take a batch of observations
+    o = reshape(o, (1, 1, size(o)...))
+    TensorFlow.set_def_graph(policy.sess.graph)
+    feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
+    q_val, state_val = run(policy.sess, [policy.q, policy.state], feed_dict)
+    policy.state_val = state_val
+    ai = indmax(q_val)
+    return actions(policy.env)[ai]
+end
+
+function get_action(policy::LSTMPolicy, o::Array{Float64}) # use current hidden state
     # cannot take a batch of observations
     o = reshape(o, (1, 1, size(o)...))
     TensorFlow.set_def_graph(policy.sess.graph)
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
-    q_val, state_val = run(sess, [policy.q, policy.state], feed_dict)
+    q_val, state_val = run(policy.sess, [policy.q, policy.state], feed_dict)
     policy.state_val = state_val
     ai = indmax(q_val)
     return actions(policy.env)[ai]
 end
 
 function POMDPs.action(policy::LSTMPolicy, o::Array{Float64})
-    return get_action!(policy, o, policy.sess)
+    return get_action!(policy, o)
 end
 
 
-function get_value(policy::LSTMPolicy, o::Array{Float64}, sess) # update hidden state
+function get_value(policy::LSTMPolicy, o::Array{Float64}) # do not update hidden state
     # cannot take a batch of observations
     o = reshape(o, (1, 1, size(o)...))
     TensorFlow.set_def_graph(policy.sess.graph)
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
-    q_val, state_val = run(sess, [policy.q, policy.state], feed_dict)
+    q_val, state_val = run(policy.sess, [policy.q, policy.state], feed_dict)
     return q_val
 end
 
-function get_value!(policy::LSTMPolicy, o::Array{Float64}, sess) # update hidden state
+function get_value!(policy::LSTMPolicy, o::Array{Float64}) # update hidden state
     # cannot take a batch of observations
     o = reshape(o, (1, 1, size(o)...))
     TensorFlow.set_def_graph(policy.sess.graph)
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
-    q_val, state_val = run(sess, [policy.q, policy.state], feed_dict)
+    q_val, state_val = run(policy.sess, [policy.q, policy.state], feed_dict)
     policy.state_val = state_val
     return q_val
 end
@@ -131,5 +154,5 @@ end
 
 # XXX be careful!! this change the hidden state of the policy
 function POMDPs.value(policy::LSTMPolicy, o::Array{Float64})
-    return get_value!(policy, o, policy.sess)
+    return get_value!(policy, o)
 end

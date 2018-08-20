@@ -32,6 +32,11 @@ policy_dueling = solve(solver, mdp)
 r_dueling = simulate(sim, mdp, policy_dueling)
 @test r_dueling >= 1.5
 
+
+# DRQN tests 
+
+n_eval = 100
+max_steps = 100
 solver = DeepRecurrentQLearningSolver(max_steps=10000, lr=0.005, eval_freq=2000,num_ep_eval=100,
                             arch = RecurrentQNetworkArchitecture(fc_in=[8], lstm_size=12, fc_out=[8]),
                             save_freq = 2000, log_freq = 500,
@@ -39,7 +44,7 @@ solver = DeepRecurrentQLearningSolver(max_steps=10000, lr=0.005, eval_freq=2000,
 
 mdp = TestMDP((5,5), 1, 6)
 policy = solve(solver, mdp)
-avg_test = eval_lstm(policy, MDPEnvironment(mdp), policy.sess)
+avg_test = basic_evaluation(policy, MDPEnvironment(mdp), n_eval, max_steps, false)
 @test avg_test >= 1.5
 
 solver = DeepRecurrentQLearningSolver(max_steps=20000, lr=0.005, eval_freq=2000, num_ep_eval=100,
@@ -48,7 +53,7 @@ solver = DeepRecurrentQLearningSolver(max_steps=20000, lr=0.005, eval_freq=2000,
                             double_q=false, dueling=false, grad_clip=false, rng=rng)
 mdp = GridWorld();
 policy = solve(solver, mdp)
-avg_gridworld = eval_lstm(policy, MDPEnvironment(mdp), policy.sess)
+avg_gridworld = basic_evaluation(policy, MDPEnvironment(mdp), n_eval, max_steps, false)
 @test avg_gridworld > 1.5
 
 include("multigraph_solve.jl")
