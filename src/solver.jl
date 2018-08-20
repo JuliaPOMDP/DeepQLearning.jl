@@ -126,7 +126,7 @@ function dqn_train(solver::DeepQLearningSolver,
                     println("Saving new model with eval reward ", scores_eval[end])
                 end
                 saver = tf.train.Saver()
-                train.save(saver, graph.sess, solver.logdir*"weights.jld")
+                train.save(saver, graph.sess, solver.logdir*"/weights.jld")
                 model_saved = true
                 saved_mean_reward = scores_eval[end]
             end
@@ -137,7 +137,7 @@ function dqn_train(solver::DeepQLearningSolver,
         if solver.verbose
             println("Restore model with eval reward ", saved_mean_reward)
             saver = tf.train.Saver()
-            train.restore(saver, graph.sess, solver.logdir*"weights.jld")
+            train.restore(saver, graph.sess, solver.logdir*"/weights.jld")
         end
     end
     return
@@ -161,10 +161,12 @@ function POMDPs.solve(solver::DeepRecurrentQLearningSolver, env::AbstractEnviron
     populate_replay_buffer!(replay, env, max_pop=solver.train_start)
     # init variables
     run(train_graph.sess, global_variables_initializer())
-    # train model
-    drqn_train(solver, env, train_graph, replay)
     policy = train_graph.lstm_policy
     policy.sess = train_graph.sess
+    # train model
+    drqn_train(solver, env, train_graph, policy, replay)
+    # policy = train_graph.lstm_policy
+    # policy.sess = train_graph.sess
     return policy
 end
 
@@ -172,6 +174,7 @@ end
 function drqn_train(solver::DeepRecurrentQLearningSolver,
                    env::AbstractEnvironment,
                    graph::RecurrentTrainGraph,
+                   policy::LSTMPolicy,
                    replay::EpisodeReplayBuffer)
     summary_writer = tf.summary.FileWriter(solver.logdir)
     obs = reset(env)
@@ -192,19 +195,9 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
     init_h = zeros(solver.batch_size, solver.arch.lstm_size)
     grad_val, loss_val = -1, -1 # sentinel value
     for t=1:solver.max_steps
-        if rand(solver.rng) > eps
-            action = get_action!(graph.lstm_policy, obs, graph.sess)
-        else
-            action = sample_action(env)
-        end
-        # update epsilon
-        if t < solver.eps_fraction*solver.max_steps
-            eps = 1 - (1 - solver.eps_end)/(solver.eps_fraction*solver.max_steps)*t # decay
-        else
-            eps = solver.eps_end
-        end
-        ai = action_index(env.problem, action)
-        op, rew, done, info = step!(env, action)
+        act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
+        ai = action_index(env.problem, act)
+        op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
         push!(episode, exp)
         obs = op
@@ -251,13 +244,12 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
 
         if t%solver.eval_freq == 0
             # save hidden state before
-            hidden_state = graph.lstm_policy.state_val
-            scores_eval = eval_lstm(graph.lstm_policy,
-                                     env,
-                                     graph.sess,
-                                     n_eval=solver.num_ep_eval,
-                                     max_episode_length=solver.max_episode_length,
-                                     verbose = solver.verbose)
+            hidden_state = deepcopy(graph.lstm_policy.state_val)
+            scores_eval = evaluation(solver.evaluation_policy, 
+                                 policy, env,                                  
+                                 solver.num_ep_eval,
+                                 solver.max_episode_length,
+                                 solver.verbose)
             # reset hidden state
             graph.lstm_policy.state_val = hidden_state
         end
@@ -297,7 +289,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
                     println("Saving new model with eval reward ", scores_eval[end])
                 end
                 saver = tf.train.Saver()
-                train.save(saver, graph.sess, solver.logdir*"weights.jld")
+                train.save(saver, graph.sess, solver.logdir*"/weights.jld")
                 model_saved = true
                 saved_mean_reward = scores_eval[end]
             end
@@ -306,42 +298,44 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
     if model_saved
         if solver.verbose
             println("Restore model with eval reward ", saved_mean_reward)
+            saver = tf.train.Saver()
+            train.restore(saver, graph.sess, solver.logdir*"/weights.jld")
         end
     end
     return
 end
 
-function eval_lstm(policy::LSTMPolicy,
-                env::AbstractEnvironment,
-                sess;
-                n_eval::Int64=100,
-                max_episode_length::Int64=100,
-                verbose::Bool=false)
-    # Evaluation
-    avg_r = 0
-    for i=1:n_eval
-        done = false
-        r_tot = 0.0
-        step = 0
-        obs = reset(env)
-        reset_hidden_state!(policy)
-        # println("start at t=0 obs $obs")
-        # println("Start state $(env.state)")
-        while !done && step <= max_episode_length
-            action = get_action!(policy, obs, sess)
-            # println(action)
-            obs, rew, done, info = step!(env, action)
-            # println("state ", env.state, " action ", a)
-            # println("Reward ", rew)
-            # println(obs, " ", done, " ", info, " ", step)
-            r_tot += rew
-            step += 1
-        end
-        avg_r += r_tot
-        # println(r_tot)
-    end
-    if verbose
-        println("Evaluation ... Avg Reward ", avg_r/n_eval)
-    end
-    return  avg_r /= n_eval
-end
+# function eval_lstm(policy::LSTMPolicy,
+#                 env::AbstractEnvironment,
+#                 sess;
+#                 n_eval::Int64=100,
+#                 max_episode_length::Int64=100,
+#                 verbose::Bool=false)
+#     # Evaluation
+#     avg_r = 0
+#     for i=1:n_eval
+#         done = false
+#         r_tot = 0.0
+#         step = 0
+#         obs = reset(env)
+#         reset_hidden_state!(policy)
+#         # println("start at t=0 obs $obs")
+#         # println("Start state $(env.state)")
+#         while !done && step <= max_episode_length
+#             action = get_action!(policy, obs, sess)
+#             # println(action)
+#             obs, rew, done, info = step!(env, action)
+#             # println("state ", env.state, " action ", a)
+#             # println("Reward ", rew)
+#             # println(obs, " ", done, " ", info, " ", step)
+#             r_tot += rew
+#             step += 1
+#         end
+#         avg_r += r_tot
+#         # println(r_tot)
+#     end
+#     if verbose
+#         println("Evaluation ... Avg Reward ", avg_r/n_eval)
+#     end
+#     return  avg_r /= n_eval
+# end
