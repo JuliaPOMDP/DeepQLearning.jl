@@ -23,7 +23,7 @@ function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_
         obs = reset(env)
         reset_hidden_state!(policy)
         while !done && step <= max_episode_length
-            act = get_action(policy, obs)
+            act = get_action!(policy, obs)
             obs, rew, done, info = step!(env, act)
             r_tot += rew 
             step += 1
