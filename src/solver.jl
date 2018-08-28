@@ -116,6 +116,7 @@ function batch_train!(env::AbstractEnvironment, graph::TrainGraph, replay::Prior
 end
 
 function batch_train!(graph::TrainGraph, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+    tf.set_def_graph(graph.sess.graph)
     feed_dict = Dict(graph.s => s_batch,
                     graph.a => a_batch,
                     graph.sp => sp_batch,
@@ -285,7 +286,7 @@ function logger(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSolver}
     write(summary_writer, tb_eps, t)
     write(summary_writer, tb_avgs, t)
     if  solver.verbose
-        logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3f | Grad %2.3f",
+        logg = @sprintf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e",
                             t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
         println(logg)
     end        
