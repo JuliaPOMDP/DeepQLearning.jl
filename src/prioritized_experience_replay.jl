@@ -56,9 +56,9 @@ function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float6
     end
 end
 
-function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::Float64)
-    @assert td_errors + r.ϵ .> 0.
-    new_priorities = (td_err + r.ϵ)^r.α
+function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::Vector{Float64})
+    new_priorities = (abs.(td_errors) + r.ϵ).^r.α
+    @assert all(new_priorities .> 0.)
     r._priorities[indices] = new_priorities
 end
 
@@ -66,6 +66,10 @@ function StatsBase.sample(r::PrioritizedReplayBuffer)
     @assert r._curr_size >= r.batch_size
     @assert r.max_size >= r.batch_size # could be checked during construction
     sample_indices = sample(r.rng, 1:r._curr_size, Weights(r._priorities[1:r._curr_size]), r.batch_size, replace=false)
+    return get_batch(r, sample_indices)
+end
+
+function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
     @assert length(sample_indices) == size(r._s_batch)[1]
     for (i, idx) in enumerate(sample_indices)
         r._s_batch[Base.setindex(indices(r._s_batch), i, 1)...] = r._experience[idx].s

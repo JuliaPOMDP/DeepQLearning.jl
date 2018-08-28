@@ -62,6 +62,7 @@ function build_loss(env::AbstractEnvironment,
         q_samp = r + (1 - term).*discount(env.problem).*maximum(target_q, 2)
         td_errors = q_sa - q_samp
         errors = huber_loss(td_errors)
+        # errors = td_errors.^2
         loss = mean(importance_weights.*errors)
     end
     return loss, td_errors

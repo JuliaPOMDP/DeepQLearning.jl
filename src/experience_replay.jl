@@ -66,6 +66,10 @@ function StatsBase.sample(r::ReplayBuffer)
     @assert r._curr_size >= r.batch_size
     @assert r.max_size >= r.batch_size # could be checked during construction
     sample_indices = sample(r.rng, 1:r._curr_size, r.batch_size, replace=false)
+    return get_batch(r, sample_indices)
+end
+
+function get_batch(r::ReplayBuffer, sample_indices::Vector{Int64})
     @assert length(sample_indices) == size(r._s_batch)[1]
     for (i, idx) in enumerate(sample_indices)
         r._s_batch[Base.setindex(indices(r._s_batch), i, 1)...] = r._experience[idx].s
@@ -76,6 +80,7 @@ function StatsBase.sample(r::ReplayBuffer)
     end
     return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch
 end
+
 
 function populate_replay_buffer!(replay::ReplayBuffer, env::AbstractEnvironment;
                                  max_pop::Int64=replay.max_size, max_steps::Int64=100)

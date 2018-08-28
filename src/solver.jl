@@ -102,7 +102,7 @@ function dqn_train(solver::DeepQLearningSolver,
     return
 end
 
-function batch_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, graph::TrainGraph, replay::ReplayBuffer)
+function batch_train!(env::AbstractEnvironment, graph::TrainGraph, replay::ReplayBuffer)
     weights = ones(replay.batch_size)
     s_batch, a_batch, r_batch, sp_batch, done_batch = sample(replay)
     return batch_train!(graph, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
@@ -110,7 +110,9 @@ end
 
 function batch_train!(env::AbstractEnvironment, graph::TrainGraph, replay::PrioritizedReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
-    return batch_train!(graph, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+    loss_val, td_errors, grad_val = batch_train!(graph, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+    update_priorities!(replay, indices, td_errors)
+    return loss_val, td_errors, grad_val
 end
 
 function batch_train!(graph::TrainGraph, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)

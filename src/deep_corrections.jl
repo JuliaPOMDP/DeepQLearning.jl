@@ -1,3 +1,7 @@
+#=
+Deprecated, moved to DeepCorrections.jl
+=#
+
 """
 Deep Correction algorithm to train an additive correction term to an existing value function 
 """ 
