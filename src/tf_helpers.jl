@@ -108,7 +108,7 @@ function dense(input::Tensor, hidden_units; activation=identity, scope="fc", reu
     input_shape = get(get_shape(input).dims[end])
     weight_shape = (input_shape, hidden_units)
     var = 2/(input_shape + hidden_units) # Xavier initialization
-    fc_W = variable_scope(scope, initializer= Normal(0.0, var),  reuse=reuse) do
+    fc_W = variable_scope(scope, initializer= Normal(0.0, sqrt(var)),  reuse=reuse) do
         get_variable("weight", [weight_shape...], Float32)
     end
     fc_b = variable_scope(scope, initializer=tf.ConstantInitializer(0.),  reuse=reuse) do
