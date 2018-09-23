@@ -6,7 +6,8 @@ module DeepQLearning
 using Distributions, StatsBase, Parameters
 using TensorFlow
 using POMDPs, POMDPToolbox, DeepRL
-using JLD
+using JLD2
+using FileIO
 const tf = TensorFlow
 
 export DeepQLearningSolver,

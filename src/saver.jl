@@ -1,7 +1,7 @@
-function JLD.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSolver},
+function FileIO.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSolver},
                   policy::Union{DQNPolicy, LSTMPolicy};
-                  weights_file::String = "weights.jld",
-                  problem_file::String = "problem.jld")
+                  weights_file::String = "weights.jld2",
+                  problem_file::String = "problem.jld2")
     saver = tf.train.Saver()
     warn("cannot save exploration policy")
     warn("cannot save evaluation function")
@@ -12,7 +12,7 @@ function JLD.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSolve
     train.save(saver, policy.sess, weights_file)
 end
 
-function restore(;problem_file::String="problem.jld", weights_file::String="weights.jld", graph=Graph())
+function restore(;problem_file::String="problem.jld2", weights_file::String="weights.jld2", graph=Graph())
     problem = load(problem_file)
     solver = problem["solver"]
     env = problem["env"]
