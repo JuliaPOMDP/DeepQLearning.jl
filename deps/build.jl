@@ -1,3 +1,1 @@
-using POMDPs
-
-POMDPs.clone("https://github.com/sisl/DeepRL.jl.git")
+Pkg.clone("https://github.com/sisl/DeepRL.jl.git")
