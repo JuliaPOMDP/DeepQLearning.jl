@@ -74,5 +74,7 @@ end
     @test avg_gridworld > 1.5
 end
 
-include("multigraph_solve.jl")
-include("multigraph_load.jl")
+@testset "multiple graphs" begin
+    include("multigraph_solve.jl")
+    include("multigraph_load.jl")
+end
