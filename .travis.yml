@@ -19,7 +19,8 @@ git:
 env:
     - PYTHON=""
 script:
- - julia -e 'Pkg.clone(pwd()); Pkg.build("DeepQLearning"); Pkg.test("DeepQLearning"; coverage=true)'
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia --project --check-bounds=yes -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/sisl/DeepRL.jl.git")); Pkg.build("DeepQLearning"); Pkg.test("DeepQLearning"; coverage=true)'
 after_success:
   # push coverage results to Coveralls
   - julia -e 'cd(Pkg.dir("DeepQLearning")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'

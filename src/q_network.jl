@@ -54,7 +54,7 @@ function build_recurrent_q_network(inputs::Tensor,
     out = stack(out, axis=2)
     # output with dueling
     out = reshape(out, (-1, lstm_size))
-    out = cnn_to_mlp(out, [], hiddens_out, num_output, scope=scope, reuse=reuse, dueling=dueling, scope=scope*"/out")
+    out = cnn_to_mlp(out, [], hiddens_out, num_output, reuse=reuse, dueling=dueling, scope=scope*"/out")
     #END OF Q NETWORK GRAPH
     return out, state_in, state_out
 end
