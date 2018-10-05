@@ -27,8 +27,8 @@ mutable struct PrioritizedReplayBuffer
                                     β::Float64 = 0.4,
                                     ϵ::Float64 = 1e-3)
         s_dim = obs_dimensions(env)
-        experience = Vector{DQExperience}(max_size)
-        priorities = Vector{Float64}(max_size)
+        experience = Vector{DQExperience}(undef, max_size)
+        priorities = Vector{Float64}(undef, max_size)
         _s_batch = zeros(batch_size, s_dim...)
         _a_batch = zeros(Int64, batch_size)
         _r_batch = zeros(batch_size)
@@ -57,7 +57,7 @@ function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float6
 end
 
 function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::Vector{Float64})
-    new_priorities = (abs.(td_errors) + r.ϵ).^r.α
+    new_priorities = (abs.(td_errors) .+ r.ϵ).^r.α
     @assert all(new_priorities .> 0.)
     r._priorities[indices] = new_priorities
 end
@@ -72,10 +72,10 @@ end
 function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
     @assert length(sample_indices) == size(r._s_batch)[1]
     for (i, idx) in enumerate(sample_indices)
-        r._s_batch[Base.setindex(indices(r._s_batch), i, 1)...] = r._experience[idx].s
+        r._s_batch[Base.setindex(axes(r._s_batch), i, 1)...] = r._experience[idx].s
         r._a_batch[i] = r._experience[idx].a
         r._r_batch[i] = r._experience[idx].r
-        r._sp_batch[Base.setindex(indices(r._sp_batch), i, 1)...] = r._experience[idx].sp
+        r._sp_batch[Base.setindex(axes(r._sp_batch), i, 1)...] = r._experience[idx].sp
         r._done_batch[i] = r._experience[idx].done
         r._weights_batch[i] = r._priorities[idx]
     end
@@ -90,7 +90,7 @@ function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractE
     step = 0
     for t=1:(max_pop - replay._curr_size)
         action = sample_action(env)
-        ai = action_index(env.problem, action)
+        ai = actionindex(env.problem, action)
         op, rew, done, info = step!(env, action)
         exp = DQExperience(o, ai, rew, op, done)
         add_exp!(replay, exp, abs(rew)) # assume initial td error is r

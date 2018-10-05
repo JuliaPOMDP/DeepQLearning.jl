@@ -26,7 +26,7 @@ mutable struct ReplayBuffer
                           batch_size::Int64,
                           rng::AbstractRNG = MersenneTwister(0))
         s_dim = obs_dimensions(env)
-        experience = Vector{DQExperience}(max_size)
+        experience = Vector{DQExperience}(undef, max_size)
         _s_batch = zeros(batch_size, s_dim...)
         _a_batch = zeros(Int64, batch_size)
         _r_batch = zeros(batch_size)
@@ -72,10 +72,10 @@ end
 function get_batch(r::ReplayBuffer, sample_indices::Vector{Int64})
     @assert length(sample_indices) == size(r._s_batch)[1]
     for (i, idx) in enumerate(sample_indices)
-        r._s_batch[Base.setindex(indices(r._s_batch), i, 1)...] = r._experience[idx].s
+        r._s_batch[Base.setindex(axes(r._s_batch), i, 1)...] = r._experience[idx].s
         r._a_batch[i] = r._experience[idx].a
         r._r_batch[i] = r._experience[idx].r
-        r._sp_batch[Base.setindex(indices(r._sp_batch), i, 1)...] = r._experience[idx].sp
+        r._sp_batch[Base.setindex(axes(r._sp_batch), i, 1)...] = r._experience[idx].sp
         r._done_batch[i] = r._experience[idx].done
     end
     return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch
@@ -89,7 +89,7 @@ function populate_replay_buffer!(replay::ReplayBuffer, env::AbstractEnvironment;
     step = 0
     for t=1:(max_pop - replay._curr_size)
         action = sample_action(env)
-        ai = action_index(env.problem, action)
+        ai = actionindex(env.problem, action)
         op, rew, done, info = step!(env, action)
         exp = DQExperience(o, ai, rew, op, done)
         add_exp!(replay, exp)

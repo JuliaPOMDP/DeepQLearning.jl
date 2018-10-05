@@ -78,7 +78,7 @@ function build_doubleq_loss(env::AbstractEnvironment, q::Tensor, target_q::Tenso
         term = cast(done_mask, Float32)
         A = one_hot(a, n_actions(env))
         q_sa = sum(A.*q, 2)
-        best_a = indmax(qp, 2)
+        best_a = argmax(qp, 2)
         best_A = one_hot(best_a, n_actions(env))
         target_q_best = sum(best_A.*target_q, 2)
         q_samp = r + (1 - term).*discount(env.problem).*target_q_best
@@ -249,7 +249,7 @@ function build_doubleq_loss(env::AbstractEnvironment,
         term = cast(flat_done_mask, Float32)
         A = one_hot(flat_a, n_actions(env))
         q_sa = sum(A.*q, 2)
-        best_a = indmax(qp, 2)
+        best_a = argmax(qp, 2)
         best_A = one_hot(best_a, n_actions(env))
         target_q_best = sum(best_A.*target_q, 2)
         q_samp = flat_r + (1 - term).*discount(env.problem).*target_q_best

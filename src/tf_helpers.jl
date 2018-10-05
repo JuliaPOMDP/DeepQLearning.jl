@@ -33,7 +33,7 @@ returns a list of trainable variables whose name contains name
 """
 function get_train_vars_by_name(name::String)
     return [var for var in get_def_graph().collections[:TrainableVariables]
-            if contains(tf.get_name(var.var_node), name)]
+            if occursin(name, tf.get_name(var.var_node))]
 end
 
 function Base.ndims(A::AbstractTensor)

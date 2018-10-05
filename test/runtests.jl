@@ -1,5 +1,6 @@
 using DeepQLearning
 using POMDPModels
+using POMDPSimulators
 using Random
 using DeepRL
 using Test

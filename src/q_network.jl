@@ -31,14 +31,14 @@ function build_recurrent_q_network(inputs::Tensor,
                                    dueling::Bool = false)
 
     # retrieve static dims
-    trace_length = get(get_shape(inputs).dims[2])
-    obs_dim = obs_dim = [get(d) for d in get_shape(inputs).dims[3:end]]
+    trace_length = get_shape(inputs).dims[2]
+    obs_dim = obs_dim = [d for d in get_shape(inputs).dims[3:end]]
     # flatten time dim
     out = reshape(inputs, (-1, obs_dim...)) # should not do anything but get the tensor shape not unknown
     # feed into conv_to_mlp
     out = cnn_to_mlp(out, convs, hiddens_in, 0, scope=scope, reuse=reuse, dueling=false, final_activation=nn.relu)
     #retrieve time dimension
-    flat_dim = get(get_shape(out).dims[end])
+    flat_dim = get_shape(out).dims[end]
     out = reshape(out, (-1, trace_length, flat_dim))
 
     # build RNN

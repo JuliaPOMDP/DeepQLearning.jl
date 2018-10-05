@@ -1,20 +1,0 @@
-WARNING: Base.Pkg is deprecated, run `using Pkg` instead
-  likely near /home/maxime/.julia/dev/DeepQLearning/deps/build.jl:1
-┌ Warning: Pkg.clone is only kept for legacy CI script reasons, please use `add`
-└ @ Pkg.API /buildworker/worker/package_linux64/build/usr/share/julia/stdlib/v0.7/Pkg/src/API.jl:445
-  Updating registry at `~/.julia/registries/General`
-  Updating git-repo `https://github.com/JuliaRegistries/General.git`
-[?25l[2K[?25h  Updating registry at `~/.julia/registries/JuliaPOMDP`
-  Updating git-repo `https://github.com/JuliaPOMDP/Registry`
-[?25l[2K[?25h   Cloning git-repo `https://github.com/sisl/DeepRL.jl.git`
-[?25l    Fetching: [>                                        ]  0.0 %[2K[?25h  Updating git-repo `https://github.com/sisl/DeepRL.jl.git`
-[?25l    Fetching: [>                                        ]  0.0 %[2K[?25h Resolving package versions...
- Installed ZMQ ─ v1.0.0
-  Updating `/tmp/tmpg9h576/Project.toml`
-  [3065fe53] + DeepRL v0.2.0 [`~/.julia/dev/DeepRL`]
-  Updating `/tmp/tmpg9h576/Manifest.toml`
-  [3065fe53] + DeepRL v0.2.0 [`~/.julia/dev/DeepRL`]
-  [08074719] + POMDPModelTools v0.1.2
-  [c2297ded] + ZMQ v1.0.0
-  [7b1f6079] + FileWatching 
-  Building ZMQ → `~/.julia/packages/ZMQ/ABGOx/deps/build.log`
