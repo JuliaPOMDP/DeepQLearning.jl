@@ -1,0 +1,27 @@
+name = "DeepQLearning"
+uuid = "de0a67f4-c691-11e8-0034-5fc6e16e22d3"
+repo = "https://github.com/juliaPOMDP/DeepQLearning.jl"
+version = "0.0.0"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+POMDPModelTools = "08074719-1b2a-587c-a292-00f91cc44415"
+POMDPs = "a93abf59-7444-517b-a68a-c42f96afdd7d"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+TensorFlow = "1d978283-2c37-5f34-9a8e-e9c0ece82495"
+
+[extras]
+POMDPModels = "355abbd5-f08e-5560-ac9e-8b5f2592a0ca"
+POMDPSimulators = "e0d0a172-29c6-5d4e-96d0-f262df5d01fd"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["POMDPModels", "POMDPSimulators", "Test"]

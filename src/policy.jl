@@ -10,7 +10,7 @@ function get_action(policy::DQNPolicy, o::Array{Float64})
     o = reshape(o, (1, size(o)...))
     TensorFlow.set_def_graph(policy.sess.graph)
     q_val = run(policy.sess, policy.q, Dict(policy.s => o))
-    ai = indmax(q_val)
+    ai = argmax(view(q_val,:))
     return actions(policy.env)[ai]
 end
 
@@ -105,7 +105,7 @@ function get_action!(policy::LSTMPolicy, o::Array{Float64}) # update hidden stat
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
     q_val, state_val = run(policy.sess, [policy.q, policy.state], feed_dict)
     policy.state_val = state_val
-    ai = indmax(q_val)
+    ai = argmax(view(q_val,:))
     return actions(policy.env)[ai]
 end
 
@@ -116,7 +116,7 @@ function get_action(policy::LSTMPolicy, o::Array{Float64}) # use current hidden 
     feed_dict = Dict(policy.s => o, policy.state_ph => policy.state_val)
     q_val, state_val = run(policy.sess, [policy.q, policy.state], feed_dict)
     policy.state_val = state_val
-    ai = indmax(q_val)
+    ai = argmax(view(q_val,:))
     return actions(policy.env)[ai]
 end
 
@@ -146,7 +146,7 @@ end
 
 function reset_hidden_state!(policy::LSTMPolicy)# could use zero_state from tf
     TensorFlow.set_def_graph(policy.sess.graph)
-    hidden_size = get(get_shape(policy.state_ph.c).dims[end])
+    hidden_size = get_shape(policy.state_ph.c).dims[end]
     init_c = zeros(1, hidden_size)
     init_h = zeros(1, hidden_size)
     policy.state_val = LSTMStateTuple(init_c, init_h)

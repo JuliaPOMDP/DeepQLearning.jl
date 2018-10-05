@@ -47,7 +47,7 @@ function dqn_train(solver::DeepQLearningSolver,
     model_saved = false
     for t=1:solver.max_steps
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
-        ai = action_index(env.problem, act)
+        ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
         add_exp!(replay, exp)
@@ -184,7 +184,7 @@ function drqn_train(solver::DeepRecurrentQLearningSolver,
     grad_val, loss_val = -1, -1 # sentinel value
     for t=1:solver.max_steps
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
-        ai = action_index(env.problem, act)
+        ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
         push!(episode, exp)

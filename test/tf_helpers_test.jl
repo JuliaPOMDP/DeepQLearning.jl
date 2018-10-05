@@ -1,11 +1,9 @@
-using Base.Test
-
 function test_flatten_multi_dims(x::Array{Float64})
     for dim=1:3
         x_ = flatten(x, batch_dim=dim)
         bs = size(x)[dim]
         for i=1:bs
-            if !(sum(slicedim(x, dim, i)[:]) ≈ sum(x_[i,:]))
+            if !(sum(selectdim(x, dim, i)[:]) ≈ sum(x_[i,:]))
                 return false
             end
         end

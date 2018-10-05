@@ -1,4 +1,6 @@
-using POMDPs, POMDPToolbox, DeepRL
+using POMDPs
+using POMDPModelTools
+using DeepRL
 
 # Define a test environment
 # it has 2 states, it ends up after taking 5 action
@@ -40,7 +42,7 @@ end
 
 # s2o(s::Int64, pomdp::TestPOMDP) = observations(pomdp)[s]
 
-function POMDPs.initial_state(mdp::TestMDP, rng::AbstractRNG)
+function POMDPs.initialstate(mdp::TestMDP, rng::AbstractRNG)
     init_t = 1
     init_s = fill(1, mdp.stack)
     return (init_s, init_t)
@@ -49,7 +51,7 @@ end
 function POMDPs.convert_s(t::Type{Vector{Float64}},s::Tuple{Vector{Int64}, Int64}, mdp::TestMDP)
     obs = zeros(mdp.shape..., mdp.o_stack)
     for i=1:mdp.o_stack
-        obs[Base.setindex(indices(obs), i, ndims(obs))...] = observations(mdp)[s[1][end-i+1]]
+        obs[Base.setindex(axes(obs), i, ndims(obs))...] = observations(mdp)[s[1][end-i+1]]
     end
     return obs./255.0
 end

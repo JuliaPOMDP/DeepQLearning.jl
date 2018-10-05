@@ -3,11 +3,17 @@ __precompile__()
 module DeepQLearning
 
 # package code goes here
-using Distributions, StatsBase, Parameters
+using Distributions 
+using StatsBase
+using Parameters
 using TensorFlow
-using POMDPs, POMDPToolbox, DeepRL
+using POMDPs
+using POMDPModelTools
+using DeepRL
 using JLD2
 using FileIO
+using Random
+using Printf
 const tf = TensorFlow
 
 export DeepQLearningSolver,

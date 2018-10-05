@@ -33,7 +33,7 @@ returns a list of trainable variables whose name contains name
 """
 function get_train_vars_by_name(name::String)
     return [var for var in get_def_graph().collections[:TrainableVariables]
-            if contains(tf.get_name(var.var_node), name)]
+            if occursin(name, tf.get_name(var.var_node))]
 end
 
 function Base.ndims(A::AbstractTensor)
@@ -55,13 +55,13 @@ end
     compute_flat_dim(dims::Vector{Nullable{Int64}})
 Multiply all the known dimensions
 """
-function compute_flat_dim(dims::Vector{Nullable{Int64}})
+function compute_flat_dim(dims::Vector{Union{Missing, Int64}})
     res = 1
     for i in dims
-        if isnull(i)
+        if ismissing(i)
             continue
         end
-        res *= get(i)
+        res *= i
     end
     return res
 end
@@ -105,7 +105,7 @@ end
     dense(input::Tensor, hidden_units; activation=identity, scope="")
 """
 function dense(input::Tensor, hidden_units; activation=identity, scope="fc", reuse=false)
-    input_shape = get(get_shape(input).dims[end])
+    input_shape = get_shape(input).dims[end]
     weight_shape = (input_shape, hidden_units)
     var = 2/(input_shape + hidden_units) # Xavier initialization
     fc_W = variable_scope(scope, initializer= Normal(0.0, sqrt(var)),  reuse=reuse) do
@@ -140,7 +140,7 @@ end
 function conv2d(inputs::Tensor, num_filters::Int64, kernel_size::Vector{Int64};
                 activation=identity, stride::Int64=1, padding::String="SAME", scope="conv", reuse::Bool=false)
     # assume inputs is of shape batch, height, width, channels
-    input_channels = get(get_shape(inputs).dims[end])
+    input_channels = get_shape(inputs).dims[end]
     weight_shape = (kernel_size[1], kernel_size[2], input_channels, num_filters)
     var = 1/(kernel_size[1]*kernel_size[2]*input_channels) # Xavier initialization
     conv_W =  variable_scope(scope, initializer=Normal(0.0, var), reuse=reuse) do
@@ -185,7 +185,6 @@ end
         list of sizes of hidden layers
 
 """
-
 function cnn_to_mlp(inputs, convs, hiddens, num_output;
     final_activation=identity, scope="conv2mlp", reuse=false, dueling=false)
     out = inputs

@@ -22,7 +22,7 @@ mutable struct EpisodeReplayBuffer
                           trace_length::Int64,
                           rng::AbstractRNG = MersenneTwister(0))
         s_dim = obs_dimensions(env)
-        experience = Vector{Vector{DQExperience}}(max_size)
+        experience = Vector{Vector{DQExperience}}(undef, max_size)
         _s_batch = zeros(batch_size, trace_length, s_dim...)
         _a_batch = zeros(Int64, batch_size, trace_length)
         _r_batch = zeros(batch_size, trace_length)
@@ -69,10 +69,10 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
         t = 1
         for j=ep_start:min(length(ep), r.trace_length)
             expe = ep[j]
-            r._s_batch[i,t,indices(r._s_batch)[3:end]...] = expe.s
+            r._s_batch[i,t,axes(r._s_batch)[3:end]...] = expe.s
             r._a_batch[i,t] = expe.a
             r._r_batch[i,t] = expe.r
-            r._sp_batch[i,t,indices(r._sp_batch)[3:end]...] = expe.sp
+            r._sp_batch[i,t,axes(r._sp_batch)[3:end]...] = expe.sp
             r._done_batch[i,t] = expe.done
             r._trace_mask[i,t] = 1
             t += 1
@@ -102,7 +102,7 @@ function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
     step = 1
     while !done && step < max_steps
         action = sample_action(env)
-        ai = action_index(env.problem, action)
+        ai = actionindex(env.problem, action)
         op, rew, done, info = step!(env, action)
         exp = DQExperience(o, ai, rew, op, done)
         push!(episode, exp)

@@ -1,4 +1,5 @@
 using TensorFlow
+using Random
 graph1 = Graph()
 policy1 = DeepQLearning.restore(problem_file = "log1/problem.jld2", weights_file = "log1/weights.jld2", graph=graph1)
 

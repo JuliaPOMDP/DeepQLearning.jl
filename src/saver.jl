@@ -3,8 +3,8 @@ function FileIO.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSo
                   weights_file::String = "weights.jld2",
                   problem_file::String = "problem.jld2")
     saver = tf.train.Saver()
-    warn("cannot save exploration policy")
-    warn("cannot save evaluation function")
+    @warn "cannot save exploration policy"
+    @warn "cannot save evaluation function"
     solver_ = deepcopy(solver)
     solver_.exploration_policy = nothing
     solver_.evaluation_policy = nothing
