@@ -79,7 +79,7 @@ end
 end
 
 # load and save of MersenneTwister is broken
-#@testset "multiple graphs" begin
-#    include("multigraph_solve.jl")
-#    include("multigraph_load.jl")
-#end
+@testset "multiple graphs" begin
+    include("multigraph_solve.jl")
+    include("multigraph_load.jl")
+end

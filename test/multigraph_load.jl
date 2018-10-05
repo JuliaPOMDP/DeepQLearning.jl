@@ -1,10 +1,10 @@
 using TensorFlow
 using Random
 graph1 = Graph()
-policy1 = DeepQLearning.restore(problem_file = "log1/problem.jld2", weights_file = "log1/weights.jld2", graph=graph1)
+policy1 = DeepQLearning.restore(problem_file = "log1/problem.bson", weights_file = "log1/weights.jld2", graph=graph1)
 
 graph2 = Graph()
-policy2 = DeepQLearning.restore(problem_file = "log2/problem.jld2", weights_file = "log2/weights.jld2", graph=graph2)
+policy2 = DeepQLearning.restore(problem_file = "log2/problem.bson", weights_file = "log2/weights.jld2", graph=graph2)
 
 
 mdp1 = TestMDP((5,5), 4, 6)

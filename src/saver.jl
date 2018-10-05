@@ -1,21 +1,21 @@
 function FileIO.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSolver},
                   policy::Union{DQNPolicy, LSTMPolicy};
                   weights_file::String = "weights.jld2",
-                  problem_file::String = "problem.jld2")
+                  problem_file::String = "problem.bson")
     saver = tf.train.Saver()
     @warn "cannot save exploration policy"
     @warn "cannot save evaluation function"
     solver_ = deepcopy(solver)
     solver_.exploration_policy = nothing
     solver_.evaluation_policy = nothing
-    save(problem_file, "solver", solver_, "env", policy.env)
+    bson(problem_file, solver=solver_, env=policy.env)
     train.save(saver, policy.sess, weights_file)
 end
 
 function restore(;problem_file::String="problem.jld2", weights_file::String="weights.jld2", graph=Graph())
-    problem = load(problem_file)
-    solver = problem["solver"]
-    env = problem["env"]
+    problem = BSON.load(problem_file)
+    solver = problem[:solver]
+    env = problem[:env]
     train_graph = build_graph(solver, env, graph)
     policy = restore_policy(env, solver, train_graph, weights_file)
     return policy

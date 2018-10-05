@@ -14,7 +14,7 @@ solver = DeepQLearningSolver(max_steps=20000, lr=0.005, eval_freq=2000,num_ep_ev
                             save_freq = 2000, log_freq = 500,
                             double_q = false, dueling=false, verbose=false, logdir="log2")
 policy2 = solve(solver, mdp2)
-DeepQLearning.save(solver, policy2, weights_file=solver.logdir*"/weights.jld2", problem_file=solver.logdir*"/problem.jld2")
+DeepQLearning.save(solver, policy2, weights_file=solver.logdir*"/weights.jld2", problem_file=solver.logdir*"/problem.bson")
 
 sim = RolloutSimulator(rng=MersenneTwister(0), max_steps=10)
 r1 = simulate(sim, mdp1, policy1)

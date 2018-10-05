@@ -10,8 +10,9 @@ using TensorFlow
 using POMDPs
 using POMDPModelTools
 using DeepRL
-using JLD2
 using FileIO
+using JLD2
+using BSON
 using Random
 using Printf
 const tf = TensorFlow
