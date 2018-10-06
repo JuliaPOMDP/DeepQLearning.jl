@@ -8,14 +8,13 @@ function FileIO.save(solver::Union{DeepQLearningSolver, DeepRecurrentQLearningSo
     solver_ = deepcopy(solver)
     solver_.exploration_policy = nothing
     solver_.evaluation_policy = nothing
-    bson(problem_file, solver=solver_, env=policy.env)
+    bson(problem_file, solver=solver_)
     train.save(saver, policy.sess, weights_file)
 end
 
-function restore(;problem_file::String="problem.jld2", weights_file::String="weights.jld2", graph=Graph())
+function restore(env::AbstractEnvironment;problem_file::String="problem.jld2", weights_file::String="weights.jld2", graph=Graph())
     problem = BSON.load(problem_file)
     solver = problem[:solver]
-    env = problem[:env]
     train_graph = build_graph(solver, env, graph)
     policy = restore_policy(env, solver, train_graph, weights_file)
     return policy
