@@ -31,7 +31,7 @@ using POMDPToolbox
 
 # define a solver with a 32x8 fully connected NN to describe the Q values
 # uses double q learning and dueling
-solver = DeepQLearning(max_steps = 100000,
+solver = DeepQLearningSolver(max_steps = 100000,
                        lr = 0.005,
                        target_update_freq = 1000,
                        arch = QNetworkArchitecture(conv=[], fc=[32,8]),
