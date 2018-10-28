@@ -214,7 +214,6 @@ function build_loss(env::AbstractEnvironment,
     loss, td_errors = nothing, nothing
     variable_scope("loss") do
         # flatten time dim
-        trace_length = 6
         time_mask = reshape(trace_mask, (-1))
         flat_a = reshape(a, (-1))
         flat_r = reshape(r, (-1))

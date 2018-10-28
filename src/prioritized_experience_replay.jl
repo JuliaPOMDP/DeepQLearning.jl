@@ -70,7 +70,7 @@ function StatsBase.sample(r::PrioritizedReplayBuffer)
 end
 
 function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
-    @assert length(sample_indices) == size(r._s_batch)[1]
+    @assert length(sample_indices) == size(r._s_batch)[end]
     for (i, idx) in enumerate(sample_indices)
         r._s_batch[Base.setindex(axes(r._s_batch), i, ndims(r._s_batch))...] = r._experience[idx].s
         r._a_batch[i] = r._experience[idx].a

@@ -15,6 +15,7 @@ mutable struct EpisodeReplayBuffer
     _sp_batch::Array{Float64}
     _done_batch::Array{Bool}
     _trace_mask::Array{Int64}
+    _episode::Vector{DQExperience}
 
     function EpisodeReplayBuffer(env::AbstractEnvironment,
                           max_size::Int64,
@@ -23,20 +24,29 @@ mutable struct EpisodeReplayBuffer
                           rng::AbstractRNG = MersenneTwister(0))
         s_dim = obs_dimensions(env)
         experience = Vector{Vector{DQExperience}}(undef, max_size)
-        _s_batch = zeros(batch_size, trace_length, s_dim...)
-        _a_batch = zeros(Int64, batch_size, trace_length)
-        _r_batch = zeros(batch_size, trace_length)
-        _sp_batch = zeros(batch_size, trace_length, s_dim...)
-        _done_batch = zeros(Bool, batch_size, trace_length)
-        _trace_mask = zeros(Int64, batch_size, trace_length)
+        _s_batch = zeros(s_dim..., trace_length, batch_size)
+        _a_batch = zeros(Int64, trace_length, batch_size)
+        _r_batch = zeros(trace_length, batch_size)
+        _sp_batch = zeros(s_dim..., trace_length, batch_size)
+        _done_batch = zeros(Bool, trace_length, batch_size)
+        _trace_mask = zeros(Int64, trace_length, batch_size)
+        _episode = Vector{DQExperience}()
         return new(max_size, batch_size, trace_length, rng, 0, 1, experience,
-                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _trace_mask)
+                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _trace_mask, _episode)
     end
 end
 
 is_full(r::EpisodeReplayBuffer) = r._curr_size == r.max_size
 
 max_size(r::EpisodeReplayBuffer) = r.max_size
+
+function add_exp!(r::EpisodeReplayBuffer, exp::DQExperience)
+    push!(r._episode, exp)
+    if exp.done
+        add_episode!(r, r._episode)
+        r._episode = Vector{DQExperience}()
+    end
+end
 
 function add_episode!(r::EpisodeReplayBuffer, ep::Vector{DQExperience})
     r._experience[r._idx] = ep
@@ -60,7 +70,7 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
     @assert r._curr_size >= r.batch_size
     @assert r.max_size >= r.batch_size # could be checked during construction
     sample_indices = sample(r.rng, 1:r._curr_size, r.batch_size, replace=false)
-    @assert length(sample_indices) == size(r._s_batch)[1]
+    @assert length(sample_indices) == size(r._s_batch)[end]
     for (i, idx) in enumerate(sample_indices)
         ep = r._experience[idx]
         # randomized start TODO add as an option of the buffer
@@ -69,18 +79,17 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
         t = 1
         for j=ep_start:min(length(ep), r.trace_length)
             expe = ep[j]
-            r._s_batch[i,t,axes(r._s_batch)[3:end]...] = expe.s
-            r._a_batch[i,t] = expe.a
-            r._r_batch[i,t] = expe.r
-            r._sp_batch[i,t,axes(r._sp_batch)[3:end]...] = expe.sp
-            r._done_batch[i,t] = expe.done
-            r._trace_mask[i,t] = 1
+            r._s_batch[axes(r._s_batch)[1:end-2]..., t, i] = expe.s
+            r._a_batch[t, i] = expe.a
+            r._r_batch[t, i] = expe.r
+            r._sp_batch[axes(r._sp_batch)[1:end-2]..., t, i] = expe.sp
+            r._done_batch[t, i] = expe.done
+            r._trace_mask[t, i] = 1
             t += 1
         end
     end
     return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch, r._trace_mask
 end
-
 
 function populate_replay_buffer!(r::EpisodeReplayBuffer,
                                  env::AbstractEnvironment;
