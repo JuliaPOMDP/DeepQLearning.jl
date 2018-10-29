@@ -263,7 +263,7 @@ function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64,
     return model_saved, saved_mean_reward
 end
 
-@POMDP_require solve(solver::DeepQLearning, mdp::Union{MDP, POMDP}) begin 
+@POMDP_require solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin 
     P = typeof(mdp)
     S = statetype(P)
     A = actiontype(P)

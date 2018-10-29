@@ -1,5 +1,5 @@
 """
-    flatten_batch(x::AbstractArray)
+    flattenbatch(x::AbstractArray)
 flatten a multi dimensional array to keep only the last dimension.
 It returns a 2 dimensional array of size (flatten_dim, batch_size)
 """
