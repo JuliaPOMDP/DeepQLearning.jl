@@ -22,8 +22,6 @@
     buffer_size::Int64 = 1000
     max_episode_length::Int64 = 100
     train_start::Int64 = 200
-    grad_clip::Bool = true
-    clip_val::Float64 = 10.0
     rng::AbstractRNG = MersenneTwister(0)
     logdir::String = ""
     save_freq::Int64 = 3000

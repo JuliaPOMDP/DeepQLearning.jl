@@ -72,12 +72,11 @@ println("Total discounted reward for 1 simulation: $r_tot")
 - `buffer_size::Int64` size of the experience replay buffer default = 1000
 - `max_episode_length::Int64` maximum length of a training episode default = 100
 - `train_start::Int64` number of steps used to fill in the replay buffer initially default = 200
-- `grad_clip::Bool` enables gradient clipping default = true
-- `clip_val::Float64` maximum value for the grad norm default = 10.0
 - `save_freq::Int64` save the model every `save_freq` steps, default = 1000
 - `evaluation_policy::Function = basic_evaluation` function use to evaluate the policy every `eval_freq` steps, the default is a rollout that return the undiscounted average reward 
 - `exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)` exploration strategy (default is epsilon greedy with linear decay)
 - `rng::AbstractRNG` random number generator default = MersenneTwister(0)
+- `logdir::String = ""` folder in which to save the model
 - `verbose::Bool` default = true
 
 ## Q Network
