@@ -37,10 +37,10 @@ end
 
 function create_dueling_network(m::Chain)
     duel_layer = -1
-    for i=0:length(m.layers)-1
-        l = m[end-i]
+    for i=1:length(m.layers)
+        l = m[end-i+1]
         if !isa(l, Dense)
-            duel_layer = i-1
+            duel_layer = length(m.layers)-i+1
             break
         end
     end

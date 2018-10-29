@@ -9,19 +9,14 @@ julia:
 
 notifications:
   email: false
-addons:
-  apt:
-    packages:
-    - hdf5-tools
 git:
   depth: 99999999
 
 ## uncomment the following lines to override the default test script
-env:
-    - PYTHON=""
+
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia --project --check-bounds=yes -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/sisl/DeepRL.jl.git")); Pkg.build("DeepQLearning"); Pkg.test("DeepQLearning"; coverage=true)'
+  - julia --project --color=yes --check-bounds=yes -e 'import Pkg; Pkg.build(); Pkg.test("DeepQLearning"; coverage=true)' 
 after_success:
   # push coverage results to Coveralls
   - julia -e 'cd(Pkg.dir("DeepQLearning")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'

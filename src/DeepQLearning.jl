@@ -5,7 +5,7 @@ using StatsBase
 using Printf
 using Parameters
 using Flux
-using Flux: onehot
+using BSON
 using POMDPs
 using POMDPModelTools
 using DeepRL

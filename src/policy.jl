@@ -20,3 +20,11 @@ function action(policy::NNPolicy, o::AbstractArray{T}) where T<:Real
         throw("NNPolicyError: was expecting an array with $(policy.n_input_dims) dimensions, got $(ndims(o))")
     end
 end
+
+function POMDPs.action(policy::NNPolicy{P}, s::S) where {P <: MDP, S}
+    action(policy, convert_s(Vector{Float64}, s, policy.problem))
+end
+
+function POMDPs.action(policy::NNPolicy{P}, o::O) where {P <: POMDP, O}
+    action(policy, convert_o(Vector{Float64}, o, policy.problem))
+end

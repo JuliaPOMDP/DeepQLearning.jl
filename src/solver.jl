@@ -25,8 +25,8 @@
     grad_clip::Bool = true
     clip_val::Float64 = 10.0
     rng::AbstractRNG = MersenneTwister(0)
-    logdir::String = "log"
-    save_freq::Int64 = 10000
+    logdir::String = ""
+    save_freq::Int64 = 3000
     log_freq::Int64 = 100
     verbose::Bool = true
 end
@@ -63,8 +63,8 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     rtot = 0
     episode_rewards = Float64[0.0]
     episode_steps = Float64[]
-    saved_mean_reward = 0.
-    scores_eval = 0.
+    saved_mean_reward = -Inf
+    scores_eval = -Inf
     model_saved = false
     for t=1:solver.max_steps 
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
@@ -112,8 +112,18 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
                         t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
             end             
         end
+        if t > solver.train_start && t%solver.save_freq == 0
+            model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
+        end
 
     end # end training
+    if model_saved
+        if solver.verbose
+            @printf("Restore model with eval reward %1.3f \n", saved_mean_reward)
+            saved_model = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
+            Flux.loadparams!(policy.qnetwork, saved_model)
+        end
+    end
     return policy
 end
 
@@ -197,14 +207,12 @@ function batch_train!(solver::DeepQLearningSolver,
                       target_q,
                       replay::EpisodeReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
-
     s_batch = batch_trajectories(s_batch, solver.trace_length, solver.batch_size)
     a_batch = batch_trajectories(a_batch, solver.trace_length, solver.batch_size)
     r_batch = batch_trajectories(r_batch, solver.trace_length, solver.batch_size)
     sp_batch = batch_trajectories(sp_batch, solver.trace_length, solver.batch_size)
     done_batch = batch_trajectories(done_batch, solver.trace_length, solver.batch_size)
     trace_mask_batch = batch_trajectories(trace_mask_batch, solver.trace_length, solver.batch_size)
-
     q_values = active_q.(s_batch) # vector of size trace_length n_actions x batch_size
     q_sa = [zeros(eltype(q_values[1]), solver.batch_size) for i=1:solver.trace_length]
     for i=1:solver.trace_length  # there might be a more elegant way of doing this
@@ -240,4 +248,17 @@ function batch_train!(solver::DeepQLearningSolver,
     grad_norm = globalnorm(params(active_q))
     optimizer()
     return loss_val, td_vals, grad_norm
+end
+
+function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool)
+    if scores_eval >= saved_mean_reward
+        weights = Tracker.data.(params(active_q))
+        bson(solver.logdir*"qnetwork.bson", qnetwork=weights)
+        if solver.verbose
+            @printf("Saving new model with eval reward %1.3f \n", scores_eval)
+        end
+        model_saved = true
+        saved_mean_reward = scores_eval
+    end
+    return model_saved, saved_mean_reward
 end
