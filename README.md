@@ -79,10 +79,15 @@ println("Total discounted reward for 1 simulation: $r_tot")
 - `logdir::String = ""` folder in which to save the model
 - `verbose::Bool` default = true
 
-## Q Network
+## Q-Network
 
 The `qnetwork` options of the solver should accept any `Chain` object. It is expected that they will be multi-layer perceptrons or convolutional layers followed by dense layer. If the network is ending with dense layers, the `dueling` option will split all the dense layers at the end of the network. 
 
 If the observation is a multi-dimensional array (e.g. an image), one can use the `flattenbatch` function to flatten all the dimensions of the image. It is useful to connect convolutional layers and dense layers for example. `flattenbatch` will flatten all the dimensions but the batch size. 
 
 The input size of the network is problem dependent and must be specified when you create the q network.
+
+## Saving/Reloading model 
+
+See [Flux.jl documentation](http://fluxml.ai/Flux.jl/stable/saving.html) for saving and loading models. The DeepQLearning solver saves the weights of the Q-network as a `bson` file in `solver.logdir/"qnetwork.bson"`.
+
