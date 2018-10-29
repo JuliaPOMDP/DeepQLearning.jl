@@ -16,6 +16,7 @@ git:
 
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/sisl/DeepRL.jl"))'
   - julia --project --color=yes --check-bounds=yes -e 'import Pkg; Pkg.build(); Pkg.test("DeepQLearning"; coverage=true)' 
 after_success:
   # push coverage results to Coveralls
