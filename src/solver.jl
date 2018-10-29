@@ -262,3 +262,19 @@ function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64,
     end
     return model_saved, saved_mean_reward
 end
+
+@POMDP_require solve(solver::DeepQLearning, mdp::Union{MDP, POMDP}) begin 
+    P = typeof(mdp)
+    S = statetype(P)
+    A = actiontype(P)
+    @req discount(::P)
+    @req n_actions(::P)
+    @subreq ordered_actions(mdp)
+    if isa(mdp, POMDP)
+        O = obstype(mdp)
+        @req convert_o(::Type{AbstractArray}, ::O, ::P)
+    else
+        @req convert_s(::Type{AbstractArray}, ::S, ::P)
+    end
+    @req reward(::P,::S,::A,::S)
+end
