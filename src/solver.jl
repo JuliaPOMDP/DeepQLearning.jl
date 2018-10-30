@@ -205,12 +205,6 @@ function batch_train!(solver::DeepQLearningSolver,
                       target_q,
                       replay::EpisodeReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
-    s_batch = batch_trajectories(s_batch, solver.trace_length, solver.batch_size)
-    a_batch = batch_trajectories(a_batch, solver.trace_length, solver.batch_size)
-    r_batch = batch_trajectories(r_batch, solver.trace_length, solver.batch_size)
-    sp_batch = batch_trajectories(sp_batch, solver.trace_length, solver.batch_size)
-    done_batch = batch_trajectories(done_batch, solver.trace_length, solver.batch_size)
-    trace_mask_batch = batch_trajectories(trace_mask_batch, solver.trace_length, solver.batch_size)
     q_values = active_q.(s_batch) # vector of size trace_length n_actions x batch_size
     q_sa = [zeros(eltype(q_values[1]), solver.batch_size) for i=1:solver.trace_length]
     for i=1:solver.trace_length  # there might be a more elegant way of doing this
@@ -226,7 +220,7 @@ function batch_train!(solver::DeepQLearningSolver,
         Flux.reset!(active_q)
         # best_a = argmax.(qp_values, dims=1)
         # q_sp_max = broadcast(getindex, target_q_values, best_a)
-        q_sp_max = [vec([target_q_values[j][argmax(qp_values[j][:,i]), i] for i=1:solver.batch_size]) for j=1:solver.trace_length] #XXX find more elegant way to do this
+        q_sp_max = [vec([target_q_values[j][argmax(view(qp_values[j],:,i)), i] for i=1:solver.batch_size]) for j=1:solver.trace_length] #XXX find more elegant way to do this
     else
         q_sp_max = vec.(maximum.(target_q.(sp_batch), dims=1))
     end
