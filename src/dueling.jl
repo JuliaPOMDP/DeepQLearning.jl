@@ -42,6 +42,8 @@ function create_dueling_network(m::Chain)
         if !isa(l, Dense)
             duel_layer = length(m.layers)-i+1
             break
+        elseif i == length(m.layers)
+            duel_layer = 0
         end
     end
     error_str = "DeepQLearningError: the qnetwork provided is incompatible with dueling"
