@@ -40,6 +40,8 @@ function POMDPs.actions(mdp::TestMDP)
     return 1:4
 end
 
+POMDPs.actionindex(mdp::TestMDP, a::Int64) = a
+
 # s2o(s::Int64, pomdp::TestPOMDP) = observations(pomdp)[s]
 
 function POMDPs.initialstate(mdp::TestMDP, rng::AbstractRNG)

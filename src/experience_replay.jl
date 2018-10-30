@@ -6,7 +6,6 @@ struct DQExperience
     done::Bool
 end
 
-
 mutable struct ReplayBuffer
     max_size::Int64 # maximum size of the buffer
     batch_size::Int64
@@ -27,10 +26,10 @@ mutable struct ReplayBuffer
                           rng::AbstractRNG = MersenneTwister(0))
         s_dim = obs_dimensions(env)
         experience = Vector{DQExperience}(undef, max_size)
-        _s_batch = zeros(batch_size, s_dim...)
+        _s_batch = zeros(s_dim..., batch_size)
         _a_batch = zeros(Int64, batch_size)
         _r_batch = zeros(batch_size)
-        _sp_batch = zeros(batch_size, s_dim...)
+        _sp_batch = zeros(s_dim..., batch_size)
         _done_batch = zeros(Bool, batch_size)
         return new(max_size, batch_size, rng, 0, 1, experience,
                    _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch)
@@ -49,19 +48,6 @@ function add_exp!(r::ReplayBuffer, expe::DQExperience)
     end
 end
 
-# convert array of DQExp to batches
-function _encode_sample!(r::ReplayBuffer, samples::Vector{DQExperience})
-    @assert length(samples) == size(r._s_batch[1])
-    for (i, sample) in enumerate(samples)
-        r._s_batch[i] = sample.s
-        r._a_batch[i] = sample.a
-        r._r_batch[i] = sample.r
-        r._sp_batch[i] = sample.sp
-        r._done_batch[i] = sample.done
-    end
-end
-
-
 function StatsBase.sample(r::ReplayBuffer)
     @assert r._curr_size >= r.batch_size
     @assert r.max_size >= r.batch_size # could be checked during construction
@@ -70,12 +56,12 @@ function StatsBase.sample(r::ReplayBuffer)
 end
 
 function get_batch(r::ReplayBuffer, sample_indices::Vector{Int64})
-    @assert length(sample_indices) == size(r._s_batch)[1]
+    @assert length(sample_indices) == size(r._s_batch)[end]
     for (i, idx) in enumerate(sample_indices)
-        r._s_batch[Base.setindex(axes(r._s_batch), i, 1)...] = r._experience[idx].s
+        r._s_batch[Base.setindex(axes(r._s_batch), i, ndims(r._s_batch))...] = r._experience[idx].s
         r._a_batch[i] = r._experience[idx].a
         r._r_batch[i] = r._experience[idx].r
-        r._sp_batch[Base.setindex(axes(r._sp_batch), i, 1)...] = r._experience[idx].sp
+        r._sp_batch[Base.setindex(axes(r._sp_batch), i, ndims(r._sp_batch))...] = r._experience[idx].sp
         r._done_batch[i] = r._experience[idx].done
     end
     return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch

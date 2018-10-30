@@ -17,7 +17,7 @@ function linear_epsilon_greedy(max_steps::Int64, eps_fraction::Float64, eps_end:
     function action_epsilon_greedy(policy::AbstractNNPolicy, env::AbstractEnvironment, obs, global_step::Int64, rng::AbstractRNG)
         eps = update_epsilon(global_step, eps_fraction, eps_end, max_steps)
         if rand(rng) > eps 
-            return (get_action!(policy, obs), eps)
+            return (action(policy, obs), eps)
         else
             return (sample_action(env), eps)
         end
