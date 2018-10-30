@@ -28,7 +28,10 @@ Pkg.add(PackageSpec(url="https://github.com/JuliaPOMDP/DeepQLearning.jl"))
 
 ```Julia
 using DeepQLearning
+using POMDPs
+using Flux
 using POMDPModels
+using POMDPSimulators
 
 # load MDP model from POMDPModels or define your own!
 mdp = SimpleGridWorld();
@@ -37,7 +40,7 @@ mdp = SimpleGridWorld();
 # the gridworld state is represented by a 2 dimensional vector.
 model = Chain(Dense(2, 32), Dense(32, n_actions(mdp)))
 
-solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=false, max_steps=10000, 
+solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, 
                              learning_rate=0.005,log_freq=500,
                              recurrence=false,double_q=true, dueling=true, prioritized_replay=true)
 
