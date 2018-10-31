@@ -159,7 +159,7 @@ function batch_train!(solver::DeepQLearningSolver,
         qp_values = active_q(sp_batch)
         # best_a = argmax(qp_values, dims=1) # fails with TrackedArrays.
         # q_sp_max = target_q_values[best_a]
-        q_sp_max = vec([target_q_values[argmax(qp_values[:,i]), i] for i=1:solver.batch_size])
+        q_sp_max = vec([target_q_values[argmax(view(qp_values,:,i)), i] for i=1:solver.batch_size])
     else
         q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
     end
