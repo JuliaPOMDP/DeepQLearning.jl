@@ -50,7 +50,7 @@ function POMDPs.initialstate(mdp::TestMDP, rng::AbstractRNG)
     return (init_s, init_t)
 end
 
-function POMDPs.convert_s(t::Type{Vector{Float64}},s::Tuple{Vector{Int64}, Int64}, mdp::TestMDP)
+function POMDPs.convert_s(t::Type{V},s::Tuple{Vector{Int64}, Int64}, mdp::TestMDP) where V<:AbstractArray{Float64}
     obs = zeros(mdp.shape..., mdp.o_stack)
     for i=1:mdp.o_stack
         obs[Base.setindex(axes(obs), i, ndims(obs))...] = observations(mdp)[s[1][end-i+1]]
