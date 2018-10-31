@@ -1,11 +1,18 @@
+using Revise
+using POMDPs
+using Random
 using DeepQLearning
 using POMDPModels
+using POMDPSimulators
 using DeepRL
+using POMDPPolicies
 using Test
+using Flux
 
 include("test_env.jl")
 
 mdp = TestMDP((5,5), 4, 6)
+mdp = SimpleGridWorld()
 
 env = MDPEnvironment(mdp)
 input_dims = obs_dimensions(env)
@@ -13,10 +20,16 @@ flattened_input_dims = reduce(*, input_dims)
 output_dims = n_actions(env)
 model = Chain(x->flattenbatch(x), Dense(flattened_input_dims, 8), Dense(8, output_dims))
 # model = Chain(x->flattenbatch(x), LSTM(flattened_input_dims, 32), Dense(32, output_dims))
-solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=true, max_steps=10000, learning_rate=0.005,log_freq=500,
+solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=true, max_steps=3000, learning_rate=0.005,log_freq=500,
                              recurrence=false,trace_length=6, double_q=false, dueling=true)
 
-@time solve(solver, env)
+@time policy = solve(solver, env)
+
+value(policy, [1.,2.])
+actionvalues(policy, [1.,2.])
+
+sim = RolloutSimulator(rng=MersenneTwister(1), max_steps=10)
+r_drqn =  simulate(sim, mdp, policy, rng)
 
 ### Hyperparameters
 buffer_size = 3000

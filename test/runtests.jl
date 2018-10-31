@@ -20,7 +20,7 @@ end
 
 @testset "vanilla DQN" begin 
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, relu), Dense(8, n_actions(mdp)))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005, 
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
@@ -34,7 +34,7 @@ end
 
 @testset "double Q DQN" begin
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, relu), Dense(8, n_actions(mdp)))
     solver = DeepQLearningSolver(qnetwork=model,max_steps=10000, learning_rate=0.005, eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
                                  double_q = true, dueling=false, prioritized_replay=false,
@@ -47,7 +47,7 @@ end
 
 @testset "dueling DQN" begin
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, relu), Dense(8, n_actions(mdp)))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005, 
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
@@ -61,7 +61,7 @@ end
 
 @testset "Prioritized DDQN" begin 
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, relu), Dense(8, n_actions(mdp)))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005, 
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
