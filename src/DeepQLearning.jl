@@ -8,6 +8,7 @@ using Flux
 using BSON
 using POMDPs
 using POMDPModelTools
+using POMDPPolicies
 using DeepRL
 
 export DeepQLearningSolver,
@@ -17,14 +18,12 @@ export DeepQLearningSolver,
        ReplayBuffer,
        PrioritizedReplayBuffer,
        EpisodeReplayBuffer,
-
     
        # helpers
        flattenbatch,
        huber_loss,
        isrecurrent,
        batch_trajectories
-
 
 include("helpers.jl")
 include("policy.jl")

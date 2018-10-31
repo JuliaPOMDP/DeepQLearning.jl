@@ -11,11 +11,29 @@ function reset!(policy::NNPolicy)
     Flux.reset!(policy.qnetwork)
 end
 
-function action(policy::NNPolicy, o::AbstractArray{T}) where T<:Real
+function POMDPs.action(policy::NNPolicy, o::AbstractArray{T}) where T<:Real
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
         vals = policy.qnetwork(obatch)
         return policy.action_map[argmax(vals)]
+    else 
+        throw("NNPolicyError: was expecting an array with $(policy.n_input_dims) dimensions, got $(ndims(o))")
+    end
+end
+
+function POMDPPolicies.actionvalues(policy::NNPolicy, o::AbstractArray{T}) where T<:Real
+    if ndims(o) == policy.n_input_dims
+        obatch = reshape(o, (size(o)...,1))
+        return policy.qnetwork(obatch)
+    else 
+        throw("NNPolicyError: was expecting an array with $(policy.n_input_dims) dimensions, got $(ndims(o))")
+    end
+end
+
+function POMDPs.value(policy::NNPolicy, o::AbstractArray{T}) where T<:Real
+    if ndims(o) == policy.n_input_dims
+        obatch = reshape(o, (size(o)...,1))
+        return maximum(policy.qnetwork(obatch))
     else 
         throw("NNPolicyError: was expecting an array with $(policy.n_input_dims) dimensions, got $(ndims(o))")
     end
