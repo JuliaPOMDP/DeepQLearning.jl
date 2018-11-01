@@ -3,7 +3,7 @@ using POMDPModels
 using POMDPSimulators
 using Flux
 using Random
-using DeepRL
+using RLInterface
 using Test
 
 include("test_env.jl")

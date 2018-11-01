@@ -5,7 +5,7 @@ version = "0.2.0"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
-DeepRL = "3065fe53-3878-5aed-aae7-ab641be43734"
+RLInterface = "3065fe53-3878-5aed-aae7-ab641be43734"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 POMDPModelTools = "08074719-1b2a-587c-a292-00f91cc44415"
 POMDPPolicies = "182e52fb-cfd0-5e46-8c26-fd0667c990f4"

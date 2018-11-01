@@ -9,7 +9,7 @@ using BSON
 using POMDPs
 using POMDPModelTools
 using POMDPPolicies
-using DeepRL
+using RLInterface
 
 export DeepQLearningSolver,
        AbstractNNPolicy,

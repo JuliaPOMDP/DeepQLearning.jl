@@ -1,6 +1,6 @@
 using POMDPs
 using POMDPModelTools
-using DeepRL
+using RLInterface
 
 # Define a test environment
 # it has 2 states, it ends up after taking 5 action
