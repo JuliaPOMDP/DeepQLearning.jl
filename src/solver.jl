@@ -1,4 +1,4 @@
-@with_kw mutable struct DeepQLearningSolver
+@with_kw mutable struct DeepQLearningSolver <: Solver
     qnetwork::Any = nothing # intended to be a flux model 
     learning_rate::Float64 = 1e-4
     max_steps::Int64 = 1000
