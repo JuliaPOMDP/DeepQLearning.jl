@@ -79,8 +79,9 @@ function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
         r._done_batch[i] = r._experience[idx].done
         r._weights_batch[i] = r._priorities[idx]
     end
-    r._weights_batch = (r._weights_batch.*r._curr_size).^-r.β./maximum(r._weights_batch)
-    return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch, sample_indices, r._weights_batch
+    pi = r._weights_batch ./ sum(r._priorities[1:r._curr_size])
+    weights = (r._curr_size * pi).^(-r.β)
+    return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch, sample_indices, weights
 end
 
 function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractEnvironment;
