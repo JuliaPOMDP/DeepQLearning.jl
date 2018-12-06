@@ -105,7 +105,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
         if t%solver.train_freq == 0       
             hs = hiddenstates(active_q)
-            loss_val, td_errors, grad_val = batch_train!(solver, env, optimizer, active_q, target_q, replay)
+            loss_val, td_errors, grad_val, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, replay)
             sethiddenstates!(active_q, hs)
 
             push!(train_loss, loss_val)
@@ -210,6 +210,11 @@ function batch_train!(solver::DeepQLearningSolver,
                       target_q,
                       s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
     q_values = active_q(s_batch) # n_actions x batch_size
+    
+    max_q_val = maximum(q_values)
+    mean_q_val = mean(q_values)
+    min_q_val = minimum(q_values)
+
     q_sa = [q_values[a_batch[i], i] for i=1:solver.batch_size] # maybe not ideal
     if solver.double_q
         target_q_values = target_q(sp_batch)
@@ -229,7 +234,7 @@ function batch_train!(solver::DeepQLearningSolver,
     Flux.back!(loss_tracked)
     grad_norm = globalnorm(params(active_q))
     optimizer()
-    return loss_val, td_vals, grad_norm
+    return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
 end
 
 function batch_train!(solver::DeepQLearningSolver,
@@ -249,9 +254,9 @@ function batch_train!(solver::DeepQLearningSolver,
                       target_q,
                       replay::PrioritizedReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
-    loss_val, td_vals, grad_norm = batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+    loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
     update_priorities!(replay, indices, td_vals)
-    return loss_val, td_vals, grad_norm
+    return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
 end
 
 # for RNNs
@@ -302,7 +307,10 @@ function batch_train!(solver::DeepQLearningSolver,
     Flux.back!(loss_tracked)
     grad_norm = globalnorm(params(active_q))
     optimizer()
-    return loss_val, td_vals, grad_norm
+    max_q_val = 0.0
+    mean_q_val = 0.0
+    min_q_val = 0.0
+    return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
 end
 
 function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool)
