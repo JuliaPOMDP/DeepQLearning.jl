@@ -126,6 +126,28 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
 end
 
 
+function restore_best_model(solver::DeepQLearningSolver, problem::MDP)
+    env = MDPEnvironment(problem, rng=solver.rng)
+    restore_best_model(solver, env)
+end
+
+function restore_best_model(solver::DeepQLearningSolver, problem::POMDP)
+    env = POMDPEnvironment(problem, rng=solver.rng)
+    restore_best_model(solver, env)
+end
+
+function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnvironment)
+    if solver.dueling
+        active_q = create_dueling_network(solver.qnetwork)
+    else
+        active_q = solver.qnetwork
+    end
+    policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
+    weights = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
+    Flux.loadparams!(policy.qnetwork, weights)
+    Flux.testmode!(policy.qnetwork)
+    return policy
+end
 
 function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnvironment)
     # init and populate replay buffer
