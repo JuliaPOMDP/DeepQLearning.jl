@@ -40,6 +40,9 @@ function POMDPs.solve(solver::DeepQLearningSolver, problem::POMDP)
 end
 
 function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
+    # make logdir
+    mkpath(solver.logdir)
+
     # check reccurence 
     if isrecurrent(solver.qnetwork) && !solver.recurrence
         throw("DeepQLearningError: you passed in a recurrent model but recurrence is set to false")
@@ -61,6 +64,20 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     rtot = 0
     episode_rewards = Float64[0.0]
     episode_steps = Float64[]
+    
+    # record evaluation
+    eval_rewards = Float64[]
+    eval_collisions = Float64[]
+    eval_steps = Float64[]
+    eval_t = Float64[]
+    
+    # record training
+    train_loss = Float64[]
+    train_td_errors = Float64[]
+    train_grad_val = Float64[]
+    train_t = Float64[]
+
+
     saved_mean_reward = -Inf
     scores_eval = -Inf
     model_saved = false
@@ -89,6 +106,14 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
             hs = hiddenstates(active_q)
             loss_val, td_errors, grad_val = batch_train!(solver, env, optimizer, active_q, target_q, replay)
             sethiddenstates!(active_q, hs)
+
+            push!(train_loss, loss_val)
+            push!(train_td_errors, mean(td_errors))
+            push!(train_grad_val, grad_val)
+            push!(train_t, t)
+
+
+
         end
 
         if t%solver.target_update_freq == 0
@@ -96,11 +121,18 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         end
 
         if t%solver.eval_freq == 0
-            scores_eval = evaluation(solver.evaluation_policy, 
+            scores_eval, violations, steps = evaluation(solver.evaluation_policy, 
                                  policy, env,                                  
                                  solver.num_ep_eval,
                                  solver.max_episode_length,
                                  solver.verbose)
+            
+            # save evaluation records
+            push!(eval_rewards, scores_eval)
+            push!(eval_collisions, violations)
+            push!(eval_steps, steps)
+            push!(eval_t, t)
+
         end
 
         if t%solver.log_freq == 0
@@ -109,6 +141,8 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e \n",
                         t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
             end             
+            bson(solver.logdir*"eval_rewards.bson", eval_scores=eval_rewards, eval_collisions=eval_collisions, eval_steps=eval_steps, eval_t=eval_t)
+            bson(solver.logdir*"train_records.bson", train_loss=train_loss, train_td_errors=train_td_errors, train_grad_val=train_grad_val, train_t=train_t)
         end
         if t > solver.train_start && t%solver.save_freq == 0
             model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
@@ -257,7 +291,13 @@ function batch_train!(solver::DeepQLearningSolver,
     Flux.reset!(target_q)
     Flux.truncate!(target_q)
     loss_val = Flux.data(loss_tracked)
-    td_vals = Flux.data(td_tracked)
+    td_vals_mtx = Flux.data.(td_tracked)
+    #println(td_vals)
+    td_vals = Float64[]
+    for i= 1:size(td_vals_mtx)[1]
+        push!(td_vals, mean(Flux.data.(td_vals_mtx[i])))
+    end
+    
     Flux.back!(loss_tracked)
     grad_norm = globalnorm(params(active_q))
     optimizer()

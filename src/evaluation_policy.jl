@@ -16,6 +16,8 @@ end
 # just simulate the policy, return the average non discounted reward
 function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_eval::Int64, max_episode_length::Int64, verbose::Bool)
     avg_r = 0 
+    avg_violations = 0
+    avg_steps = 0
     for i=1:n_eval
         done = false 
         r_tot = 0.0
@@ -28,10 +30,15 @@ function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_
             r_tot += rew 
             step += 1
         end
-        avg_r += r_tot 
+        r_tot < 0.1 ? avg_violations += 1 : nothing
+        avg_r += r_tot
+        avg_steps += step 
     end
+    avg_r /= n_eval
+    avg_violations = avg_violations / n_eval * 100
+    avg_steps /= n_eval
     if verbose
-        println("Evaluation ... Avg Reward ", avg_r/n_eval)
+        println("Evaluation ... Avg Reward $(avg_r) | Avg Violations (%) $(avg_violations) | Avg Steps $(avg_steps). ")
     end
-    return  avg_r /= n_eval
+    return  avg_r, avg_violations, avg_steps
 end
