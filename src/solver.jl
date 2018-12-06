@@ -139,8 +139,8 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         if t%solver.log_freq == 0
             #TODO log the training perf somewhere (?dataframes/csv?)
             if  solver.verbose
-                @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e \n",
-                        t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
+                @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | max_q %1.3f | mean_q %1.3f | min_q %1.3f \n",
+                        t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, max_q_val, mean_q_val, min_q_val)
             end             
             bson(solver.logdir*"eval_rewards.bson", eval_scores=eval_rewards, eval_collisions=eval_collisions, eval_steps=eval_steps, eval_t=eval_t)
             bson(solver.logdir*"train_records.bson", train_loss=train_loss, train_td_errors=train_td_errors, train_grad_val=train_grad_val, train_t=train_t)
