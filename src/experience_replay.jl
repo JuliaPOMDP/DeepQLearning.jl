@@ -19,6 +19,7 @@ mutable struct ReplayBuffer
     _r_batch::Vector{Float64}
     _sp_batch::Array{Float64}
     _done_batch::Vector{Bool}
+    _episode::Vector{DQExperience}
 
     function ReplayBuffer(env::AbstractEnvironment,
                           max_size::Int64,
@@ -31,8 +32,9 @@ mutable struct ReplayBuffer
         _r_batch = zeros(batch_size)
         _sp_batch = zeros(s_dim..., batch_size)
         _done_batch = zeros(Bool, batch_size)
+        _episode = Vector{DQExperience}()
         return new(max_size, batch_size, rng, 0, 1, experience,
-                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch)
+                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _episode)
     end
 end
 
@@ -40,13 +42,39 @@ is_full(r::ReplayBuffer) = r._curr_size == r.max_size
 
 max_size(r::ReplayBuffer) = r.max_size
 
-function add_exp!(r::ReplayBuffer, expe::DQExperience)
+function add_exp!(r::ReplayBuffer, expe::DQExperience; lambda::Float64=0.8)
+    push!(r._episode, expe)
+    if expe.done
+        add_episode!(r, lambda=lambda)
+        r._episode = Vector{DQExperience}()
+    end    
+    """
     r._experience[r._idx] = expe
     r._idx = mod1((r._idx + 1),r.max_size)
     if r._curr_size < r.max_size
         r._curr_size += 1
     end
+    """
 end
+
+function add_episode!(r::ReplayBuffer; lambda::Float64=0.0)
+    re = r._episode[end].r
+    lambda_total = 1.0
+    for exp_idx in length(r._episode)-1:-1:1
+        re = re*lambda + r._episode[exp_idx].r
+        lambda_total = lambda_total*lambda + 1
+        r._episode[exp_idx] = DQExperience(r._episode[exp_idx].s, r._episode[exp_idx].a, re/lambda_total, r._episode[exp_idx].sp, r._episode[exp_idx].done)
+    end
+    for exp in r._episode
+        r._experience[r._idx] = exp
+        r._idx = mod1((r._idx+1), r.max_size)
+        if r._curr_size < r.max_size
+            r._curr_size += 1
+        end
+    end
+end
+
+
 
 function StatsBase.sample(r::ReplayBuffer)
     @assert r._curr_size >= r.batch_size
@@ -69,7 +97,7 @@ end
 
 
 function populate_replay_buffer!(replay::ReplayBuffer, env::AbstractEnvironment;
-                                 max_pop::Int64=replay.max_size, max_steps::Int64=100)
+                                 max_pop::Int64=replay.max_size, lambda::Float64=0.0, max_steps::Int64=100)
     o = reset(env)
     done = false
     step = 0
@@ -78,7 +106,7 @@ function populate_replay_buffer!(replay::ReplayBuffer, env::AbstractEnvironment;
         ai = actionindex(env.problem, action)
         op, rew, done, info = step!(env, action)
         exp = DQExperience(o, ai, rew, op, done)
-        add_exp!(replay, exp)
+        add_exp!(replay, exp, lambda=lambda)
         o = op
         # println(o, " ", action, " ", rew, " ", done, " ", info) #TODO verbose?
         step += 1

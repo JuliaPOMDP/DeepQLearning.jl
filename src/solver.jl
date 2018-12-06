@@ -27,6 +27,7 @@
     save_freq::Int64 = 3000
     log_freq::Int64 = 100
     verbose::Bool = true
+    lambda::Float64 = 0.0
 end
 
 function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
@@ -86,7 +87,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
-        add_exp!(replay, exp)
+        add_exp!(replay, exp, lambda=solver.lambda)
         obs = op
         step += 1
         episode_rewards[end] += rew
@@ -192,7 +193,7 @@ function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnvi
     else
         replay = ReplayBuffer(env, solver.buffer_size, solver.batch_size)
     end
-    populate_replay_buffer!(replay, env, max_pop=solver.train_start)
+    populate_replay_buffer!(replay, env, max_pop=solver.train_start, lambda=solver.lambda)
     return replay #XXX type unstable
 end
 

@@ -18,6 +18,8 @@ mutable struct PrioritizedReplayBuffer
     _sp_batch::Array{Float64}
     _done_batch::Vector{Bool}
     _weights_batch::Vector{Float64}
+    _episode::Vector{DQExperience}
+    _priorities_episode::Vector{Float64}
 
     function PrioritizedReplayBuffer(env::AbstractEnvironment,
                                     max_size::Int64,
@@ -35,8 +37,10 @@ mutable struct PrioritizedReplayBuffer
         _sp_batch = zeros(s_dim..., batch_size)
         _done_batch = zeros(Bool, batch_size)
         _weights_batch = zeros(Float64, batch_size)
+        _episode = Vector{DQExperience}()
+        _priorities_episode = Vector{Float64}()
         return new(max_size, batch_size, rng, α, β, ϵ, 0, 1, priorities, experience,
-                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _weights_batch)
+                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _weights_batch, _episode, _priorities_episode)
     end
 end
 
@@ -45,8 +49,17 @@ is_full(r::PrioritizedReplayBuffer) = r._curr_size == r.max_size
 
 max_size(r::PrioritizedReplayBuffer) = r.max_size
 
-function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float64=abs(expe.r))
+function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float64=abs(expe.r); lambda::Float64=0.0)
     @assert td_err + r.ϵ > 0.
+
+    push!(r._episode,  expe)
+    push!(r._priorities_episode,  (td_err + r.ϵ)^r.α)
+    if expe.done
+        add_episode!(r, lambda=lambda)
+        r._episode = Vector{DQExperience}()
+        r._priorities_episode = Vector{Float64}()
+    end
+    """
     priority = (td_err + r.ϵ)^r.α
     r._experience[r._idx] = expe
     r._priorities[r._idx] = priority
@@ -54,7 +67,27 @@ function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float6
     if r._curr_size < r.max_size
         r._curr_size += 1
     end
+    """
 end
+
+function add_episode!(r::PrioritizedReplayBuffer; lambda::Float64=0.0)
+    re = r._episode[end].r
+    lambda_total = 1.0
+    for exp_idx in length(r._episode)-1:-1:1
+        re = re*lambda + r._episode[exp_idx].r
+        lambda_total = lambda_total*lambda + 1
+        r._episode[exp_idx] = DQExperience(r._episode[exp_idx].s, r._episode[exp_idx].a, re/lambda_total, r._episode[exp_idx].sp, r._episode[exp_idx].done)
+    end
+    for (exp, priority) in zip(r._episode, r._priorities_episode)
+        r._experience[r._idx] = exp
+        r._priorities[r._idx] = priority
+        r._idx = mod1((r._idx+1), r.max_size)
+        if r._curr_size < r.max_size
+            r._curr_size += 1
+        end
+    end
+end
+
 
 function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::Vector{Float64})
     new_priorities = (abs.(td_errors) .+ r.ϵ).^r.α
@@ -85,7 +118,7 @@ function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
 end
 
 function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractEnvironment;
-                                 max_pop::Int64=replay.max_size, max_steps::Int64=100)
+                                 max_pop::Int64=replay.max_size, lambda::Float64=0.0, max_steps::Int64=100)
     o = reset(env)
     done = false
     step = 0
@@ -94,7 +127,7 @@ function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractE
         ai = actionindex(env.problem, action)
         op, rew, done, info = step!(env, action)
         exp = DQExperience(o, ai, rew, op, done)
-        add_exp!(replay, exp, abs(rew)) # assume initial td error is r
+        add_exp!(replay, exp, abs(rew), lambda=lambda) # assume initial td error is r
         o = op
         # println(o, " ", action, " ", rew, " ", done, " ", info) #TODO verbose?
         step += 1
