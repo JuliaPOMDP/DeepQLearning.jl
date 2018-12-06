@@ -68,7 +68,8 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     
     # record evaluation
     eval_rewards = Float64[]
-    eval_collisions = Float64[]
+    eval_violations = Float64[]
+    eval_timeout = Float64[]
     eval_steps = Float64[]
     eval_t = Float64[]
     
@@ -80,8 +81,11 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
 
 
     saved_mean_reward = -Inf
+    saved_mean_violations = Inf
     scores_eval = -Inf
     model_saved = false
+    violations = Inf
+    
     for t=1:solver.max_steps 
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
         ai = actionindex(env.problem, act)
@@ -122,7 +126,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         end
 
         if t%solver.eval_freq == 0
-            scores_eval, violations, steps = evaluation(solver.evaluation_policy, 
+            scores_eval, violations, steps, timeout = evaluation(solver.evaluation_policy, 
                                  policy, env,                                  
                                  solver.num_ep_eval,
                                  solver.max_episode_length,
@@ -130,8 +134,9 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
             
             # save evaluation records
             push!(eval_rewards, scores_eval)
-            push!(eval_collisions, violations)
+            push!(eval_violations, violations)
             push!(eval_steps, steps)
+            push!(eval_timeout, timeout)
             push!(eval_t, t)
 
         end
@@ -142,11 +147,13 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | max_q %1.3f | mean_q %1.3f | min_q %1.3f \n",
                         t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, max_q_val, mean_q_val, min_q_val)
             end             
-            bson(solver.logdir*"eval_rewards.bson", eval_scores=eval_rewards, eval_collisions=eval_collisions, eval_steps=eval_steps, eval_t=eval_t)
+            bson(solver.logdir*"eval_rewards.bson", eval_scores=eval_rewards, eval_timeout=eval_timeout, eval_violations=eval_violations, eval_steps=eval_steps, eval_t=eval_t)
             bson(solver.logdir*"train_records.bson", train_loss=train_loss, train_td_errors=train_td_errors, train_grad_val=train_grad_val, train_t=train_t)
         end
+
+
         if t > solver.train_start && t%solver.save_freq == 0
-            model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
+            model_saved, saved_mean_reward, saved_mean_violations = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved, violations, saved_mean_violations)
         end
 
     end # end training
@@ -313,17 +320,18 @@ function batch_train!(solver::DeepQLearningSolver,
     return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
 end
 
-function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool)
-    if scores_eval >= saved_mean_reward
+function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool, violations::Float64, saved_mean_violations::Float64)
+    if violations <= saved_mean_violations || (violations <= saved_mean_violations+0.1 && scores_eval >= saved_mean_reward)
         weights = Tracker.data.(params(active_q))
         bson(solver.logdir*"qnetwork.bson", qnetwork=weights)
         if solver.verbose
-            @printf("Saving new model with eval reward %1.3f \n", scores_eval)
+                @printf("Saving new model with violations %1.3f (%%) and eval reward %1.3f \n", violations, scores_eval)
         end
         model_saved = true
         saved_mean_reward = scores_eval
+        saved_mean_violations = violations
     end
-    return model_saved, saved_mean_reward
+    return model_saved, saved_mean_reward, saved_mean_violations
 end
 
 @POMDP_require solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin 
