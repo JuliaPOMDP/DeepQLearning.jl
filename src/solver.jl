@@ -24,36 +24,68 @@
     train_start::Int64 = 200
     rng::AbstractRNG = MersenneTwister(0)
     logdir::String = ""
+    bestmodel_logdir::String = ""
     save_freq::Int64 = 3000
     log_freq::Int64 = 100
     verbose::Bool = true
     lambda::Float64 = 0.0
+    safety_mode::Bool = false
 end
 
-function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
-    env = MDPEnvironment(problem, rng=solver.rng)
-    return solve(solver, env)
+function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP; resume_model::Bool=false)
+    env = MDPEnvironment(problem, rng=solver.rng, resume_model=resume_model)
+    return solve(solver, env, resume_model=resume_model)
 end
 
-function POMDPs.solve(solver::DeepQLearningSolver, problem::POMDP)
+function POMDPs.solve(solver::DeepQLearningSolver, problem::POMDP; resume_model::Bool=false)
     env = POMDPEnvironment(problem, rng=solver.rng)
-    return solve(solver, env)
+    return solve(solver, env, resume_model=resume_model)
 end
 
-function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
+function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment; resume_model::Bool=false)
     # make logdir
     mkpath(solver.logdir)
+    solver.bestmodel_logdir = solver.logdir * "bestmodel/"
+    print(solver.bestmodel_logdir)
+    mkpath(solver.bestmodel_logdir)
 
     # check reccurence 
     if isrecurrent(solver.qnetwork) && !solver.recurrence
         throw("DeepQLearningError: you passed in a recurrent model but recurrence is set to false")
     end
     replay = initialize_replay_buffer(solver, env)
+     
+
+    saved_mean_reward = -Inf
+    saved_mean_violations = Inf
+    scores_eval = -Inf
+    model_saved = false
+    violations = Inf
+    
+    
     if solver.dueling 
         active_q = create_dueling_network(solver.qnetwork)
     else
         active_q = solver.qnetwork
     end
+
+
+    # resume model or not
+    resume_epoch = 0
+    if resume_model
+        saved = BSON.load(solver.logdir*"qnetwork.bson")
+        resume_epoch +=  saved[:epoch]
+        Flux.loadparams!(active_q, saved[:qnetwork])
+
+        saved_best = BSON.load(solver.bestmodel_logdir*"qnetwork.bson")
+
+        solver.train_start = 0
+
+        println("resume model from $(solver.logdir) at training epoch $(resume_epoch), the best model has reward $(saved_best[:reward]), violations $(saved_best[:violations]) at epoch $(saved_best[:epoch]).")
+    end
+    
+    
+    
     policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
     target_q = deepcopy(solver.qnetwork)
     optimizer = ADAM(Flux.params(active_q), solver.learning_rate)
@@ -80,11 +112,6 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     train_t = Float64[]
 
 
-    saved_mean_reward = -Inf
-    saved_mean_violations = Inf
-    scores_eval = -Inf
-    model_saved = false
-    violations = Inf
     
     for t=1:solver.max_steps 
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
@@ -144,8 +171,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         if t%solver.log_freq == 0
             #TODO log the training perf somewhere (?dataframes/csv?)
             if  solver.verbose
-                @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | max_q %1.3f | mean_q %1.3f | min_q %1.3f \n",
-                        t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, max_q_val, mean_q_val, min_q_val)
+                @printf("previous training %5d, %5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | max_q %1.3f | mean_q %1.3f | min_q %1.3f \n", resume_epoch, t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, max_q_val, mean_q_val, min_q_val)
             end             
             bson(solver.logdir*"eval_rewards.bson", eval_scores=eval_rewards, eval_timeout=eval_timeout, eval_violations=eval_violations, eval_steps=eval_steps, eval_t=eval_t)
             bson(solver.logdir*"train_records.bson", train_loss=train_loss, train_td_errors=train_td_errors, train_grad_val=train_grad_val, train_t=train_t)
@@ -153,15 +179,17 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
 
 
         if t > solver.train_start && t%solver.save_freq == 0
-            model_saved, saved_mean_reward, saved_mean_violations = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved, violations, saved_mean_violations)
+            model_saved, saved_mean_reward, saved_mean_violations = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved, violations, saved_mean_violations, t+resume_epoch, solver.safety_mode)
         end
 
     end # end training
     if model_saved
         if solver.verbose
-            @printf("Restore model with eval reward %1.3f \n", saved_mean_reward)
-            saved_model = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
-            Flux.loadparams!(policy.qnetwork, saved_model)
+            saved = BSON.load(solver.logdir*"qnetwork.bson")
+            Flux.loadparams!(policy.qnetwork, saved[:qnetwork])
+            Flux.testmode!(policy.qnetwork)
+            @printf("Restore model with eval reward %1.3f and eval_reward %1.3f at epoch %d. \n", saved_mean_reward, saved_mean_violations, solver.max_steps+resume_epoch)
+
         end
     end
     return policy
@@ -169,11 +197,13 @@ end
 
 
 function restore_best_model(solver::DeepQLearningSolver, problem::MDP)
+    solver.bestmodel_logdir = solver.logdir * "bestmodel/"
     env = MDPEnvironment(problem, rng=solver.rng)
     restore_best_model(solver, env)
 end
 
 function restore_best_model(solver::DeepQLearningSolver, problem::POMDP)
+    solver.bestmodel_logdir = solver.logdir * "bestmodel/"
     env = POMDPEnvironment(problem, rng=solver.rng)
     restore_best_model(solver, env)
 end
@@ -185,9 +215,11 @@ function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnvironmen
         active_q = solver.qnetwork
     end
     policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
-    weights = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
-    Flux.loadparams!(policy.qnetwork, weights)
+    saved = BSON.load(solver.bestmodel_logdir*"qnetwork.bson")
+    println("$(solver.bestmodel_logdir)")
+    Flux.loadparams!(policy.qnetwork, saved[:qnetwork])
     Flux.testmode!(policy.qnetwork)
+    println("restore best model from $(solver.bestmodel_logdir) with reward $(saved[:reward]) and violations $(saved[:violations]) at epoch $(saved[:epoch]) ")
     return policy
 end
 
@@ -320,16 +352,17 @@ function batch_train!(solver::DeepQLearningSolver,
     return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
 end
 
-function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool, violations::Float64, saved_mean_violations::Float64)
-    if violations <= saved_mean_violations || (violations <= saved_mean_violations+0.1 && scores_eval >= saved_mean_reward)
-        weights = Tracker.data.(params(active_q))
-        bson(solver.logdir*"qnetwork.bson", qnetwork=weights)
-        if solver.verbose
-                @printf("Saving new model with violations %1.3f (%%) and eval reward %1.3f \n", violations, scores_eval)
-        end
-        model_saved = true
+function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool, violations::Float64, saved_mean_violations::Float64, epoch::Int64, safety_mode::Bool)
+    weights = Tracker.data.(params(active_q))
+    bson(solver.logdir*"qnetwork.bson", qnetwork=weights, epoch=epoch, reward=scores_eval, violations=violations)
+    if (safety_mode && (violations <= saved_mean_violations || (violations <= saved_mean_violations+0.1 && scores_eval >= saved_mean_reward))) ||(!safety_mode && scores_eval>=saved_mean_reward)
         saved_mean_reward = scores_eval
         saved_mean_violations = violations
+        bson(solver.bestmodel_logdir*"qnetwork.bson", qnetwork=weights, reward=saved_mean_reward, violations=saved_mean_violations, epoch=epoch)
+        if solver.verbose
+            @printf("Saving new best model with violations %1.3f (%%) and eval reward %1.3f at epoch %d \n", violations, scores_eval, epoch)
+        end
+        model_saved = true
     end
     return model_saved, saved_mean_reward, saved_mean_violations
 end
