@@ -187,7 +187,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment; res
             saved = BSON.load(solver.logdir*"qnetwork.bson")
             Flux.loadparams!(policy.qnetwork, saved[:qnetwork])
             Flux.testmode!(policy.qnetwork)
-            @printf("Restore model with eval reward %1.3f and eval_reward %1.3f at epoch %d. \n", saved_mean_reward, saved_mean_violations, solver.max_steps+resume_epoch)
+            @printf("Restore model with eval reward %1.3f and violations %1.3f at epoch %d. \n", saved_mean_reward, saved_mean_violations, solver.max_steps+resume_epoch)
 
         end
     end
