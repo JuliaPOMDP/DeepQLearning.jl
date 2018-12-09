@@ -34,3 +34,15 @@ function update_epsilon(step::Int64, epsilon_fraction::Float64, epsilon_end::Flo
     end
     return new_eps
 end
+
+
+function fixed_epsilon_greedy(eps::Float64)
+    function action_epsilon_greedy(policy::AbstractNNPolicy, env::AbstractEnvironment, obs, global_step::Int64, rng::AbstractRNG)
+        if rand(rng) > eps 
+            return (action(policy, obs), eps)
+        else
+            return (sample_action(env), eps)
+        end
+    end
+    return action_epsilon_greedy
+end

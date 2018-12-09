@@ -33,7 +33,7 @@
 end
 
 function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP; resume_model::Bool=false)
-    env = MDPEnvironment(problem, rng=solver.rng, resume_model=resume_model)
+    env = MDPEnvironment(problem, rng=solver.rng)
     return solve(solver, env, resume_model=resume_model)
 end
 
@@ -46,7 +46,6 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment; res
     # make logdir
     mkpath(solver.logdir)
     solver.bestmodel_logdir = solver.logdir * "bestmodel/"
-    print(solver.bestmodel_logdir)
     mkpath(solver.bestmodel_logdir)
 
     # check reccurence 

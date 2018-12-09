@@ -43,6 +43,7 @@ is_full(r::ReplayBuffer) = r._curr_size == r.max_size
 max_size(r::ReplayBuffer) = r.max_size
 
 function add_exp!(r::ReplayBuffer, expe::DQExperience; lambda::Float64=0.8)
+    """
     push!(r._episode, expe)
     if expe.done
         add_episode!(r, lambda=lambda)
@@ -54,9 +55,9 @@ function add_exp!(r::ReplayBuffer, expe::DQExperience; lambda::Float64=0.8)
     if r._curr_size < r.max_size
         r._curr_size += 1
     end
-    """
 end
 
+"""
 function add_episode!(r::ReplayBuffer; lambda::Float64=0.0)
     re = r._episode[end].r
     lambda_total = 1.0
@@ -73,7 +74,7 @@ function add_episode!(r::ReplayBuffer; lambda::Float64=0.0)
         end
     end
 end
-
+"""
 
 
 function StatsBase.sample(r::ReplayBuffer)

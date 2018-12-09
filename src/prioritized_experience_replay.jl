@@ -52,6 +52,7 @@ max_size(r::PrioritizedReplayBuffer) = r.max_size
 function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float64=abs(expe.r); lambda::Float64=0.0)
     @assert td_err + r.ϵ > 0.
 
+    """
     push!(r._episode,  expe)
     push!(r._priorities_episode,  (td_err + r.ϵ)^r.α)
     if expe.done
@@ -67,9 +68,10 @@ function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float6
     if r._curr_size < r.max_size
         r._curr_size += 1
     end
-    """
+    
 end
 
+"""
 function add_episode!(r::PrioritizedReplayBuffer; lambda::Float64=0.0)
     re = r._episode[end].r
     lambda_total = 1.0
@@ -87,7 +89,7 @@ function add_episode!(r::PrioritizedReplayBuffer; lambda::Float64=0.0)
         end
     end
 end
-
+"""
 
 function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::Vector{Float64})
     new_priorities = (abs.(td_errors) .+ r.ϵ).^r.α
