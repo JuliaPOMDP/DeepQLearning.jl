@@ -12,14 +12,17 @@ using POMDPPolicies
 using RLInterface
 
 export DeepQLearningSolver,
+       DeepQLearningSolverET,
        AbstractNNPolicy,
        NNPolicy,
        DQExperience,
+       ETDQExperience,
        restore_best_model,
        ReplayBuffer,
        PrioritizedReplayBuffer,
        EpisodeReplayBuffer,
-    
+       ETReplayBuffer,
+
        # helpers
        flattenbatch,
        huber_loss,
@@ -33,7 +36,9 @@ include("evaluation_policy.jl")
 include("experience_replay.jl")
 include("prioritized_experience_replay.jl")
 include("episode_replay.jl")
+include("et_experience_replay.jl")
 include("dueling.jl")
 include("solver.jl")
+include("et_solver.jl")
 
 end # module DeepQLearning
