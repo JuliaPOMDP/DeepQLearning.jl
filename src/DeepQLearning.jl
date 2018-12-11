@@ -10,6 +10,7 @@ using POMDPs
 using POMDPModelTools
 using POMDPPolicies
 using RLInterface
+using LinearAlgebra
 
 export DeepQLearningSolver,
        AbstractNNPolicy,

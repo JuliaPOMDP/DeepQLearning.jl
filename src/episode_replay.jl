@@ -58,7 +58,7 @@ end
 
 function reset_batches!(r::EpisodeReplayBuffer)
     fill!.(r._s_batch, 0.)
-    fill!.(r._a_batch, 0)
+    fill!.(r._a_batch, 1)
     fill!.(r._r_batch, 0.)
     fill!.(r._sp_batch, 0.)
     fill!.(r._done_batch, false)
