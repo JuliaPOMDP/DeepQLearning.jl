@@ -92,7 +92,8 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         end
 
         if t%solver.target_update_freq == 0
-            target_q = deepcopy(active_q)
+            weights = Flux.params(active_q)
+            Flux.loadparams!(target_q, weights)
         end
 
         if t%solver.eval_freq == 0
@@ -162,39 +163,35 @@ function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnvi
     return replay #XXX type unstable
 end
 
-
-function loss(td)
-    l = mean(huber_loss.(td))
-    return l
-end
-
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
                       optimizer, 
                       active_q, 
                       target_q,
                       s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
-    q_values = active_q(s_batch) # n_actions x batch_size
-    q_sa = [q_values[a_batch[i], i] for i=1:solver.batch_size] # maybe not ideal
+    loss_tracked, td_tracked = q_learning_loss(solver, env, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
+    loss_val = loss_tracked.data
+    td_vals = Flux.data.(td_tracked)
+    Flux.back!(loss_tracked)
+    grad_norm = globalnorm(params(active_q))
+    optimizer()
+    return loss_val, td_vals, grad_norm
+end
+
+function q_learning_loss(solver::DeepQLearningSolver, env::AbstractEnvironment, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
+    q_values = active_q(s_batch)
+    q_sa = diag(view(q_values, a_batch, :))
     if solver.double_q
         target_q_values = target_q(sp_batch)
         qp_values = active_q(sp_batch)
-        # best_a = argmax(qp_values, dims=1) # fails with TrackedArrays.
-        # q_sp_max = target_q_values[best_a]
         q_sp_max = vec([target_q_values[argmax(view(qp_values,:,i)), i] for i=1:solver.batch_size])
     else
         q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
     end
     q_targets = r_batch .+ (1.0 .- done_batch).*discount(env.problem).*q_sp_max 
     td_tracked = q_sa .- q_targets
-    loss_tracked = loss(importance_weights.*td_tracked)
-    loss_val = loss_tracked.data
-    # td_vals = [td_tracked[i].data for i=1:solver.batch_size]
-    td_vals = Flux.data.(td_tracked)
-    Flux.back!(loss_tracked)
-    grad_norm = globalnorm(params(active_q))
-    optimizer()
-    return loss_val, td_vals, grad_norm
+    loss_tracked = mean(huber_loss, importance_weights.*td_tracked)
+    return loss_tracked, td_tracked
 end
 
 function batch_train!(solver::DeepQLearningSolver,
@@ -227,35 +224,16 @@ function batch_train!(solver::DeepQLearningSolver,
                       target_q,
                       replay::EpisodeReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
-    q_values = active_q.(s_batch) # vector of size trace_length n_actions x batch_size
-    q_sa = [zeros(eltype(q_values[1]), solver.batch_size) for i=1:solver.trace_length]
-    for i=1:solver.trace_length  # there might be a more elegant way of doing this
-        for j=1:solver.batch_size
-            if a_batch[i][j] != 0
-                q_sa[i][j] = q_values[i][a_batch[i][j], j]
-            end
-        end
-    end
-    if solver.double_q
-        target_q_values = target_q.(sp_batch)
-        qp_values = active_q.(sp_batch)
-        Flux.reset!(active_q)
-        # best_a = argmax.(qp_values, dims=1)
-        # q_sp_max = broadcast(getindex, target_q_values, best_a)
-        q_sp_max = [vec([target_q_values[j][argmax(view(qp_values[j],:,i)), i] for i=1:solver.batch_size]) for j=1:solver.trace_length] #XXX find more elegant way to do this
-    else
-        q_sp_max = vec.(maximum.(target_q.(sp_batch), dims=1))
-    end
-    q_targets = Vector{eltype(q_sa)}(undef, solver.trace_length)
-    for i=1:solver.trace_length
-        q_targets[i] = r_batch[i] .+ (1.0 .- done_batch[i]).*discount(env.problem).*q_sp_max[i]
-    end
-    td_tracked = broadcast((x,y) -> x.*y, trace_mask_batch, q_sa .- q_targets)
-    loss_tracked = sum(loss.(td_tracked))/solver.trace_length
     Flux.reset!(active_q)
-    Flux.truncate!(active_q)
     Flux.reset!(target_q)
-    Flux.truncate!(target_q)
+    loss_tracked = zero(Flux.Tracker.TrackedReal{Float64})
+    td_tracked = Vector{Vector{Flux.Tracker.TrackedReal{Float64}}}(undef, solver.trace_length)
+    for i=1:solver.trace_length
+        loss_tracked_tmp, td_tracked_tmp = q_learning_loss(solver, env, active_q, target_q, s_batch[i], a_batch[i], r_batch[i], sp_batch[i], done_batch[i], trace_mask_batch[i])
+        loss_tracked += loss_tracked_tmp 
+        td_tracked[i] = td_tracked_tmp
+    end
+    loss_tracked /= solver.trace_length
     loss_val = Flux.data(loss_tracked)
     td_vals = Flux.data(td_tracked)
     Flux.back!(loss_tracked)
