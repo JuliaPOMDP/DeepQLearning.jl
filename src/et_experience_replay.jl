@@ -1,4 +1,3 @@
-
 struct ETDQExperience
     s::Array{Float64}
     a::Int64
@@ -101,8 +100,7 @@ function get_batch(r::ETReplayBuffer, sample_indices::Vector{Int64})
 end
 
 
-function populate_replay_buffer!(replay::ETReplayBuffer, env::AbstractEnvironment, active_q, target_q, double_q;
-                                 max_pop::Int64=replay.max_size, max_steps::Int64=100)
+function populate_replay_buffer!(replay::ETReplayBuffer, env::AbstractEnvironment, active_q, target_q, double_q; max_pop::Int64=replay.max_size, max_steps::Int64=100)
     o = reset(env)
     done = false
     step = 0

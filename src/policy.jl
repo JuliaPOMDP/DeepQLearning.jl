@@ -22,6 +22,7 @@ function _action(policy::NNPolicy{P,Q,A}, o::AbstractArray{T, N}) where {P<:Unio
 end
 
 function POMDPPolicies.actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
+    reset!(policy)
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
         return policy.qnetwork(obatch)
@@ -31,6 +32,7 @@ function POMDPPolicies.actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,
 end
 
 function _value(policy::NNPolicy{P}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},T<:Real,N}
+    reset!(policy)
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
         return maximum(policy.qnetwork(obatch))

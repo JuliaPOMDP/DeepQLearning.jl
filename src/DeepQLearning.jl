@@ -12,7 +12,7 @@ using POMDPPolicies
 using RLInterface
 
 export DeepQLearningSolver,
-       DeepQLearningSolverET,
+       ETDeepQLearningSolver,
        AbstractNNPolicy,
        NNPolicy,
        DQExperience,
@@ -22,6 +22,8 @@ export DeepQLearningSolver,
        PrioritizedReplayBuffer,
        EpisodeReplayBuffer,
        ETReplayBuffer,
+       ETEpisodeReplayBuffer,
+       ETPrioritizedEpisodeReplayBuffer,
 
        # helpers
        flattenbatch,
@@ -37,6 +39,8 @@ include("experience_replay.jl")
 include("prioritized_experience_replay.jl")
 include("episode_replay.jl")
 include("et_experience_replay.jl")
+include("et_episode_replay.jl")
+include("et_prioritized_experience_replay.jl")
 include("dueling.jl")
 include("solver.jl")
 include("et_solver.jl")

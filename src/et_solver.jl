@@ -1,4 +1,4 @@
-@with_kw mutable struct DeepQLearningSolverET <: Solver
+@with_kw mutable struct ETDeepQLearningSolver <: Solver
     qnetwork::Any = nothing # intended to be a flux model 
     learning_rate::Float64 = 1e-4
     max_steps::Int64 = 1000
@@ -30,28 +30,27 @@
     verbose::Bool = true
     lambda::Float64 = 0.0
     safety_mode::Bool = false
+    watkins::Bool = false
 end
 
-function POMDPs.solve(solver::DeepQLearningSolverET, problem::MDP; resume_model::Bool=false)
+function POMDPs.solve(solver::ETDeepQLearningSolver, problem::MDP; resume_model::Bool=false)
     env = MDPEnvironment(problem, rng=solver.rng)
     return solve(solver, env, resume_model=resume_model)
 end
 
-function POMDPs.solve(solver::DeepQLearningSolverET, problem::POMDP; resume_model::Bool=false)
+function POMDPs.solve(solver::ETDeepQLearningSolver, problem::POMDP; resume_model::Bool=false)
     env = POMDPEnvironment(problem, rng=solver.rng)
     return solve(solver, env, resume_model=resume_model)
 end
 
-function POMDPs.solve(solver::DeepQLearningSolverET, env::AbstractEnvironment; resume_model::Bool=false)
+function POMDPs.solve(solver::ETDeepQLearningSolver, env::AbstractEnvironment; resume_model::Bool=false)
+    #println("test")
     # make logdir
     mkpath(solver.logdir)
     solver.bestmodel_logdir = solver.logdir * "bestmodel/"
     mkpath(solver.bestmodel_logdir)
 
-    # check reccurence 
-    if isrecurrent(solver.qnetwork) && !solver.recurrence
-        throw("DeepQLearningError: you passed in a recurrent model but recurrence is set to false")
-    end
+    replay = initialize_replay_buffer(solver, env)
      
 
     saved_mean_reward = -Inf
@@ -67,38 +66,6 @@ function POMDPs.solve(solver::DeepQLearningSolverET, env::AbstractEnvironment; r
         active_q = solver.qnetwork
     end
 
-
-    # resume model or not
-    resume_epoch = 0
-    if resume_model
-        saved = BSON.load(solver.logdir*"qnetwork.bson")
-        resume_epoch +=  saved[:epoch]
-        Flux.loadparams!(active_q, saved[:qnetwork])
-
-        saved_best = BSON.load(solver.bestmodel_logdir*"qnetwork.bson")
-
-        solver.train_start = 0
-
-        println("resume model from $(solver.logdir) at training epoch $(resume_epoch), the best model has reward $(saved_best[:reward]), violations $(saved_best[:violations]) at epoch $(saved_best[:epoch]).")
-    end
-    
-    
-    
-    policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
-    target_q = deepcopy(solver.qnetwork)
-    optimizer = ADAM(Flux.params(active_q), solver.learning_rate)
-
-    replay = initialize_replay_buffer(solver, env, active_q, target_q, solver.double_q)
-
-    # start training
-    reset!(policy)
-    obs = reset(env)
-    done = false
-    step = 0
-    rtot = 0
-    episode_rewards = Float64[0.0]
-    episode_steps = Float64[]
-    
     # record evaluation
     eval_rewards = Float64[]
     eval_violations = Float64[]
@@ -112,14 +79,56 @@ function POMDPs.solve(solver::DeepQLearningSolverET, env::AbstractEnvironment; r
     train_grad_val = Float64[]
     train_t = Float64[]
 
+    # resume model or not
+    resume_epoch = 0
+    if resume_model
+        saved = BSON.load(solver.logdir*"qnetwork.bson")
+        resume_epoch +=  saved[:epoch]
+        Flux.loadparams!(active_q, saved[:qnetwork])
 
+        saved_best = BSON.load(solver.bestmodel_logdir*"qnetwork.bson")
+
+        solver.train_start = 0
+
+        eval_saved = BSON.load(solver.logdir*"eval_rewards.bson")
+        eval_rewards = eval_saved[:eval_scores]
+        eval_timeout = eval_saved[:eval_timeout]
+        eval_violations = eval_saved[:eval_violations]
+        eval_steps = eval_saved[:eval_steps]
+        eval_t = eval_saved[:eval_t]
+
+        train_saved = BSON.load(solver.logdir*"train_records.bson")
+        train_loss = train_saved[:train_loss]
+        train_td_errors = train_saved[:train_td_errors]
+        train_grad_val = train_saved[:train_grad_val]
+        train_t = train_saved[:train_t]
+
+        println("resume model from $(solver.logdir) at training epoch $(resume_epoch), the best model has reward $(saved_best[:reward]), violations $(saved_best[:violations]) at epoch $(saved_best[:epoch]).")
+    end
     
+    
+    
+    policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
+    target_q = deepcopy(solver.qnetwork)
+    optimizer = ADAM(Flux.params(active_q), solver.learning_rate)
+    # start training
+    reset!(policy)
+    obs = reset(env)
+    done = false
+    step = 0
+    rtot = 0
+    episode_rewards = Float64[0.0]
+    episode_steps = Float64[]
+    
+
+
+    done=true    
     for t=1:solver.max_steps 
-        act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
+        act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng, reset_mask=done)
         ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
-        add_exp!(replay, exp, active_q, target_q, solver.double_q)
+        add_exp!(replay, exp)
         obs = op
         step += 1
         episode_rewards[end] += rew
@@ -137,11 +146,11 @@ function POMDPs.solve(solver::DeepQLearningSolverET, env::AbstractEnvironment; r
         avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
         if t%solver.train_freq == 0       
             hs = hiddenstates(active_q)
-            loss_val, td_errors, grad_val, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, replay)
+            loss_val, td_errors, grad_val, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, replay)
             sethiddenstates!(active_q, hs)
 
             push!(train_loss, loss_val)
-            push!(train_td_errors, mean(td_errors))
+            push!(train_td_errors, mean(mean.(td_errors)))
             push!(train_grad_val, grad_val)
             push!(train_t, t)
 
@@ -189,7 +198,7 @@ function POMDPs.solve(solver::DeepQLearningSolverET, env::AbstractEnvironment; r
             saved = BSON.load(solver.logdir*"qnetwork.bson")
             Flux.loadparams!(policy.qnetwork, saved[:qnetwork])
             Flux.testmode!(policy.qnetwork)
-            @printf("Restore model with eval reward %1.3f and violations %1.3f at epoch %d. \n", saved_mean_reward, saved_mean_violations, solver.max_steps+resume_epoch)
+            @printf("Restore model with eval reward %1.3f and violations %1.3f at epoch %d. \n", saved_mean_reward, saved_mean_violations, saved[:epoch])
 
         end
     end
@@ -197,142 +206,152 @@ function POMDPs.solve(solver::DeepQLearningSolverET, env::AbstractEnvironment; r
 end
 
 
-function restore_best_model(solver::DeepQLearningSolverET, problem::MDP)
+function restore_best_model(solver::ETDeepQLearningSolver, problem::MDP)
     solver.bestmodel_logdir = solver.logdir * "bestmodel/"
     env = MDPEnvironment(problem, rng=solver.rng)
     restore_best_model(solver, env)
 end
 
-function restore_best_model(solver::DeepQLearningSolverET, problem::POMDP)
+function restore_best_model(solver::ETDeepQLearningSolver, problem::POMDP)
     solver.bestmodel_logdir = solver.logdir * "bestmodel/"
     env = POMDPEnvironment(problem, rng=solver.rng)
     restore_best_model(solver, env)
 end
 
-function restore_best_model(solver::DeepQLearningSolverET, env::AbstractEnvironment)
+function restore_best_model(solver::ETDeepQLearningSolver, env::AbstractEnvironment)
     if solver.dueling
         active_q = create_dueling_network(solver.qnetwork)
     else
         active_q = solver.qnetwork
     end
     policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
-    saved = BSON.load(solver.bestmodel_logdir*"qnetwork.bson")
+    saved = BSON.load(solver.logdir*"qnetwork.bson")
     println("$(solver.bestmodel_logdir)")
     Flux.loadparams!(policy.qnetwork, saved[:qnetwork])
     Flux.testmode!(policy.qnetwork)
-    println("restore best model from $(solver.bestmodel_logdir) with reward $(saved[:reward]) and violations $(saved[:violations]) at epoch $(saved[:epoch]) ")
+    println("restore best model from $(solver.logdir) with reward $(saved[:reward]) and violations $(saved[:violations]) at epoch $(saved[:epoch]) ")
     return policy
 end
 
-function initialize_replay_buffer(solver::DeepQLearningSolverET, env::AbstractEnvironment, active_q::Any, target_q::Any, double_q::Bool)
+function initialize_replay_buffer(solver::ETDeepQLearningSolver, env::AbstractEnvironment)
     # init and populate replay buffer
-    """
     if solver.prioritized_replay
-        replay = ETPrioritizedReplayBuffer(env, solver.buffer_size, solver.batch_size, discount(env.problem), solver.lambda)
+        replay = ETPrioritizedEpisodeReplayBuffer(env, solver.buffer_size, solver.batch_size, solver.trace_length)
     else
-        replay = ETReplayBuffer(env, solver.buffer_size, solver.batch_size, discount(env.problem), solver.lambda)
+        replay = ETEpisodeReplayBuffer(env, solver.buffer_size, solver.batch_size, solver.trace_length)
     end
-    """
-    replay = ETReplayBuffer(env, solver.buffer_size, solver.batch_size, discount(env.problem), solver.lambda)
-    populate_replay_buffer!(replay, env, active_q, target_q, double_q, max_pop=solver.train_start)
+    populate_replay_buffer!(replay, env, max_pop=solver.train_start)
     return replay #XXX type unstable
 end
 
-"""
-function loss(td)
-    l = mean(huber_loss.(td))
-    return l
-end
-"""
-
-function get_target_q(active_q, target_q, double_q, s_batch, a_batch, r_batch, sp_batch,gamma, lambda)
-    N = length(a_batch)
-    if double_q
-        target_q_values = target_q(sp_batch)
-        qp_values = active_q(sp_batch)
-        # best_a = argmax(qp_values, dims=1) # fails with TrackedArrays.
-        # q_sp_max = target_q_values[best_a]
-        q_sp_max = vec([target_q_values[argmax(view(qp_values,:,i)), i] for i=1:N])
-        lambda_sp_batch = lambda.*[argmax(view(qp_values,:,i))==a_batch[i+1] for i=1:N-1] 
-    else
-        q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
-        lambda_sp_batch = lambda.*[argmax(view(target_q(sp_batch),:,i))==a_batch[i+1] for i=1:N-1]
-    end
-
-    q_sp_max = Flux.data.(q_sp_max)
-    q_targets = r_batch .*1.0  #.+ (1.0 .- done_batch).*discount(env.problem).*q_sp_max 
-    denominator = 1.0
-    
-    for idx in N-1:-1:1
-        q_targets[idx] += gamma * (q_sp_max[idx] + lambda_sp_batch[idx] * q_targets[idx+1]*denominator)/(1+lambda_sp_batch[idx] * denominator)
-        denominator = 1.0 + denominator*lambda_sp_batch[idx]
-    end
-
-    return Flux.data.(q_targets)
-
-end
-
-function batch_train!(solver::DeepQLearningSolverET,
+function batch_train!(solver::ETDeepQLearningSolver,
                       env::AbstractEnvironment,
                       optimizer, 
                       active_q, 
-                      s_batch, a_batch, q_targets, importance_weights)
-    q_values = active_q(s_batch) # n_actions x batch_size
-    
-    max_q_val = maximum(q_values)
-    mean_q_val = mean(q_values)
-    min_q_val = minimum(q_values)
+                      target_q,
+                      replay::ETEpisodeReplayBuffer)
+        
+    s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
+    return batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch,  r_batch, sp_batch, done_batch, trace_mask_batch, [ones(Float64, solver.batch_size) for i=1:solver.trace_length])
+end
 
-    q_sa = [q_values[a_batch[i], i] for i=1:solver.batch_size] # maybe not ideal
-    """
-    if solver.double_q
-        target_q_values = target_q(sp_batch)
-        qp_values = active_q(sp_batch)
-        # best_a = argmax(qp_values, dims=1) # fails with TrackedArrays.
-        # q_sp_max = target_q_values[best_a]
-        q_sp_max = vec([target_q_values[argmax(view(qp_values,:,i)), i] for i=1:solver.batch_size])
-    else
-        q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
+
+function batch_train!(solver::ETDeepQLearningSolver,
+                      env::AbstractEnvironment,
+                      optimizer, 
+                      active_q, 
+                      target_q,
+                      replay::ETPrioritizedEpisodeReplayBuffer)
+        
+    s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch, weights, sample_indices, start_indices = DeepQLearning.sample(replay)
+    loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch, weights) 
+    update_priorities!(replay, sample_indices, start_indices, td_vals)
+    return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
+end
+
+function batch_train!(solver::ETDeepQLearningSolver,
+                     env::AbstractEnvironment,
+                     optimizer,
+                     active_q,
+                     target_q,
+                     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch, importance_weights)    
+    q_values = active_q.(s_batch) # vector of size trace_length n_actions x batch_size
+    q_sa = [zeros(eltype(q_values[1]), solver.batch_size) for i=1:solver.trace_length]
+    for i=1:solver.trace_length  # there might be a more elegant way of doing this
+        for j=1:solver.batch_size
+            if a_batch[i][j] != 0
+                q_sa[i][j] = q_values[i][a_batch[i][j], j]
+            end
+        end
     end
-    q_targets = r_batch .+ (1.0 .- done_batch).*discount(env.problem).*q_sp_max 
+
+
+
+    if solver.double_q
+        target_q_values = target_q.(sp_batch)
+        qp_values = active_q.(sp_batch)
+        q_sp_max = [vec([target_q_values[j][argmax(view(qp_values[j],:,i)), i] for i=1:solver.batch_size]) for j=1:solver.trace_length] #XXX find more elegant way to do this
+        if solver.watkins
+            lambda_sp_batch = [ vec(solver.lambda.*[argmax(view(qp_values[j],:,i))==a_batch[j+1][i]  for i=1:solver.batch_size]) for j=1:solver.trace_length-1]
+        else 
+            lambda_sp_batch = solver.lambda * [ones(solver.batch_size) for _ in 1:solver.trace_length-1] 
+        end
+    else
+        qp_values = target_q.(sp_batch)
+        q_sp_max = vec.(maximum.(qp_values, dims=1))
+        if solver.watkins
+            lambda_sp_batch = solver.lambda.*[vec([argmax(view(qp_values[j],:,i))==a_batch[j+1][i] for i=1:solver.batch_size]) for j=1:solver.trace_length-1]
+        else
+            lambda_sp_batch = solver.lambda * [ones(solver.batch_size) for _ in 1:solver.trace_length-1] 
+        end
+    end
+
+    
+    lambda_sp_batch = broadcast((x,y) -> x.*y, lambda_sp_batch, trace_mask_batch[2:end])
+    q_targets = Vector{Array{Float64}}(undef, solver.trace_length)
+    q_targets[end] = Flux.data(r_batch[end] .+ (1.0 .- done_batch[end]).* discount(env.problem).*q_sp_max[end]) 
+    denominator = ones(solver.batch_size)
+
+    for i=solver.trace_length-1:-1:1
+        q_targets[i] = Flux.data(r_batch[i] .+ (1.0 .- done_batch[i]).* discount(env.problem) .* (q_sp_max[i] .+ Flux.data.(lambda_sp_batch[i].*q_targets[i+1].*denominator)) ./(1.0 .+ denominator .* lambda_sp_batch[i]))
+        denominator = 1.0 .+ denominator .* lambda_sp_batch[i]  
+    end
+
     """
-    td_tracked = q_sa .- q_targets
-    loss_tracked = loss(importance_weights.*td_tracked)
-    loss_val = loss_tracked.data
-    # td_vals = [td_tracked[i].data for i=1:solver.batch_size]
-    td_vals = Flux.data.(td_tracked)
+    q_targets_1 = Vector{Array{Float64}}(undef, solver.trace_length)
+    for i=1:solver.trace_length
+        q_targets_1[i] = Flux.data(r_batch[i] .+ (1.0 .- done_batch[i]).*discount(env.problem).*q_sp_max[i])
+    end
+    
+    #println(q_targets_1)
+    #println(q_targets)
+    #println(lambda_sp_batch)
+    #println(done_batch)
+    #println(r_batch)
+
+    #println()
+    """
+    trace_mask_batch = broadcast((x,y) -> x.*y, trace_mask_batch, importance_weights)
+    td_tracked = broadcast((x,y) -> x.*y, trace_mask_batch, q_sa .- q_targets)
+
+    loss_tracked = sum(loss, td_tracked)/sum(sum, trace_mask_batch)
+    loss_val = Flux.data(loss_tracked)
+
+
+    td_vals = map(x -> Flux.data.(x), td_tracked)
     Flux.back!(loss_tracked)
     grad_norm = globalnorm(params(active_q))
     optimizer()
+
+
+
+    max_q_val =  maximum(maximum.(q_values))
+    mean_q_val = mean(mean.(q_values))
+    min_q_val = minimum(minimum.(q_values))
     return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
 end
 
-function batch_train!(solver::DeepQLearningSolverET,
-                      env::AbstractEnvironment,
-                      optimizer, 
-                      active_q, 
-                      replay::ETReplayBuffer)
-    s_batch, a_batch, q_targets = sample(replay)
-    return batch_train!(solver, env, optimizer, active_q, s_batch, a_batch, q_targets,ones(solver.batch_size))
-end
-
-"""
-function batch_train!(solver::DeepQLearningSolver,
-                      env::AbstractEnvironment,
-                      optimizer, 
-                      active_q, 
-                      replay::ETPrioritizedReplayBuffer)
-    s_batch, a_batch, q_targets, indices, weights = sample(replay)
-    loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, s_batch, a_batch, q_targets, weights)
-    update_priorities!(replay, indices, td_vals)
-    return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
-end
-"""
-
-
-
-
-function save_model(solver::DeepQLearningSolverET, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool, violations::Float64, saved_mean_violations::Float64, epoch::Int64, safety_mode::Bool)
+function save_model(solver::ETDeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool, violations::Float64, saved_mean_violations::Float64, epoch::Int64, safety_mode::Bool)
     weights = Tracker.data.(params(active_q))
     bson(solver.logdir*"qnetwork.bson", qnetwork=weights, epoch=epoch, reward=scores_eval, violations=violations)
     if (safety_mode && (violations <= saved_mean_violations || (violations <= saved_mean_violations+0.1 && scores_eval >= saved_mean_reward))) ||(!safety_mode && scores_eval>=saved_mean_reward)
@@ -347,7 +366,7 @@ function save_model(solver::DeepQLearningSolverET, active_q, scores_eval::Float6
     return model_saved, saved_mean_reward, saved_mean_violations
 end
 
-@POMDP_require solve(solver::DeepQLearningSolverET, mdp::Union{MDP, POMDP}) begin 
+@POMDP_require solve(solver::ETDeepQLearningSolver, mdp::Union{MDP, POMDP}) begin 
     P = typeof(mdp)
     S = statetype(P)
     A = actiontype(P)
