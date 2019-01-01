@@ -28,7 +28,7 @@ function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_
         while !done && step <= max_episode_length
             act = action(policy, obs)
             obs, rew, done, info = step!(env, act)
-            r_tot += rew 
+            r_tot = discount(env.problem)^step*rew + r_tot 
             step += 1
         end
         if r_tot < 0.5

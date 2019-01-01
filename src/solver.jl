@@ -12,8 +12,11 @@
     recurrence::Bool = false
     eps_fraction::Float64 = 0.5
     eps_end::Float64 = 0.01
+    gamma_begin::Float64 = 0.95
+    gamma_end::Float64 = 1.0
+    gamma_fraction::Float64 = 0.5
     evaluation_policy::Any = basic_evaluation
-    exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)
+    exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end, gamma_begin, gamma_end, gamma_fraction)
     trace_length::Int64 = 40
     prioritized_replay::Bool = true
     prioritized_replay_alpha::Float64 = 0.6
@@ -127,7 +130,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment; res
 
     done=true    
     for t=1:solver.max_steps 
-        act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng, reset_mask=done)
+        act, eps, gamma = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng, reset_mask=done)
         ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
@@ -149,7 +152,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment; res
         avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
         if t%solver.train_freq == 0       
             hs = hiddenstates(active_q)
-            loss_val, td_errors, grad_val, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, replay)
+            loss_val, td_errors, grad_val, max_q_val, mean_q_val,min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, replay, gamma)
             sethiddenstates!(active_q, hs)
 
             push!(train_loss, loss_val)
@@ -260,7 +263,7 @@ function batch_train!(solver::DeepQLearningSolver,
                       optimizer, 
                       active_q, 
                       target_q,
-                      s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
+                      s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights, gamma::Float64)
     q_values = active_q(s_batch) # n_actions x batch_size
     
     max_q_val = maximum(q_values)
@@ -277,7 +280,7 @@ function batch_train!(solver::DeepQLearningSolver,
     else
         q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
     end
-    q_targets = r_batch .+ (1.0 .- done_batch).*discount(env.problem).*q_sp_max 
+    q_targets = r_batch .+ (1.0 .- done_batch).*gamma.*q_sp_max 
     td_tracked = q_sa .- q_targets
     loss_tracked = loss(importance_weights.*td_tracked)
     loss_val = loss_tracked.data
@@ -294,9 +297,9 @@ function batch_train!(solver::DeepQLearningSolver,
                       optimizer, 
                       active_q, 
                       target_q,
-                      replay::ReplayBuffer)
+                      replay::ReplayBuffer, gamma::Float64)
     s_batch, a_batch, r_batch, sp_batch, done_batch = sample(replay)
-    return batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, ones(solver.batch_size))
+    return batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, ones(solver.batch_size), gamma)
 end
 
 function batch_train!(solver::DeepQLearningSolver,
@@ -304,9 +307,9 @@ function batch_train!(solver::DeepQLearningSolver,
                       optimizer, 
                       active_q, 
                       target_q,
-                      replay::PrioritizedReplayBuffer)
+                      replay::PrioritizedReplayBuffer, gamma::Float64)
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
-    loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+    loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val = batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights, gamma)
     update_priorities!(replay, indices, td_vals)
     return loss_val, td_vals, grad_norm, max_q_val, mean_q_val, min_q_val
 end
@@ -317,7 +320,7 @@ function batch_train!(solver::DeepQLearningSolver,
                       optimizer, 
                       active_q, 
                       target_q,
-                      replay::EpisodeReplayBuffer)
+                      replay::EpisodeReplayBuffer, gamma::Float64)
         
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
     q_values = active_q.(s_batch) # vector of size trace_length n_actions x batch_size

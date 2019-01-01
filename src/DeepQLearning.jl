@@ -13,6 +13,7 @@ using RLInterface
 
 export DeepQLearningSolver,
        ETDeepQLearningSolver,
+       DoubleDeepQLearningSolver,
        AbstractNNPolicy,
        NNPolicy,
        DQExperience,
@@ -44,5 +45,6 @@ include("et_prioritized_experience_replay.jl")
 include("dueling.jl")
 include("solver.jl")
 include("et_solver.jl")
+include("double_solver.jl")
 
 end # module DeepQLearning
