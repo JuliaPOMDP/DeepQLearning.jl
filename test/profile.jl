@@ -12,12 +12,13 @@ rng = MersenneTwister(1)
 
 mdp = SimpleGridWorld()
 
-model = Chain(Dense(2, 32, relu), LSTM(32,32), Dense(32, 32, relu), Dense(32, n_actions(mdp)))
+model = Chain(Dense(2, 32, relu), Dense(32,32), Dense(32, 32, relu), Dense(32, n_actions(mdp)))
 
-solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=false, max_steps=1000, learning_rate=0.001,log_freq=500,
-                             recurrence=true,trace_length=10, double_q=false, dueling=false, rng=rng, verbose=false)
+solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=false, max_steps=2000, learning_rate=0.001,log_freq=500,
+                             recurrence=false,trace_length=10, double_q=false, dueling=false, rng=rng, verbose=false)
 @btime policy = solve(solver, mdp)
 
+solver.trace_length
 
 @profile 1+1
 Profile.clear()
