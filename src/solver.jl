@@ -51,7 +51,12 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         active_q = solver.qnetwork
     end
     policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
-    target_q = deepcopy(solver.qnetwork)
+    return dqn_train!(solver, env, policy, replay)
+end
+
+function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, policy::AbstractNNPolicy, replay)
+    active_q = solver.qnetwork # shallow copy
+    target_q = deepcopy(active_q)
     optimizer = ADAM(Flux.params(active_q), solver.learning_rate)
     # start training
     reset!(policy)
@@ -87,7 +92,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
         avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
         if t%solver.train_freq == 0       
             hs = hiddenstates(active_q)
-            loss_val, td_errors, grad_val = batch_train!(solver, env, optimizer, active_q, target_q, replay)
+            loss_val, td_errors, grad_val = batch_train!(solver, env, policy, optimizer, target_q, replay)
             sethiddenstates!(active_q, hs)
         end
 
@@ -165,14 +170,17 @@ end
 
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
-                      optimizer, 
-                      active_q, 
+                      policy::NNPolicy,
+                      optimizer,
                       target_q,
                       s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
+    active_q = policy.qnetwork
     loss_tracked, td_tracked = q_learning_loss(solver, env, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
     loss_val = loss_tracked.data
     td_vals = Flux.data.(td_tracked)
     Flux.back!(loss_tracked)
+    @show active_q
+    @show params(active_q)
     grad_norm = globalnorm(params(active_q))
     optimizer()
     return loss_val, td_vals, grad_norm
@@ -196,22 +204,22 @@ end
 
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
+                      policy::AbstractNNPolicy,
                       optimizer, 
-                      active_q, 
                       target_q,
                       replay::ReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch = sample(replay)
-    return batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, ones(solver.batch_size))
+    return batch_train!(solver, env, policy, optimizer, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, ones(solver.batch_size))
 end
 
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
+                      policy::AbstractNNPolicy,
                       optimizer, 
-                      active_q, 
                       target_q,
                       replay::PrioritizedReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
-    loss_val, td_vals, grad_norm = batch_train!(solver, env, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+    loss_val, td_vals, grad_norm = batch_train!(solver, env, policy, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
     update_priorities!(replay, indices, td_vals)
     return loss_val, td_vals, grad_norm
 end
@@ -219,10 +227,11 @@ end
 # for RNNs
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
+                      policy::NNPolicy,
                       optimizer, 
-                      active_q, 
                       target_q,
                       replay::EpisodeReplayBuffer)
+    active_q = policy.qnetwork
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
     Flux.reset!(active_q)
     Flux.reset!(target_q)

@@ -12,7 +12,8 @@ using POMDPPolicies
 using RLInterface
 using LinearAlgebra
 
-export DeepQLearningSolver,
+export AbstractDQNSolver,
+       DeepQLearningSolver,
        AbstractNNPolicy,
        NNPolicy,
        DQExperience,
