@@ -102,11 +102,13 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         end
 
         if t%solver.eval_freq == 0
+            saved_state = env.state
             scores_eval = evaluation(solver.evaluation_policy, 
                                  policy, env,                                  
                                  solver.num_ep_eval,
                                  solver.max_episode_length,
                                  solver.verbose)
+            env.state = saved_state
         end
 
         if t%solver.log_freq == 0
