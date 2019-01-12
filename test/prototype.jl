@@ -43,6 +43,19 @@ Profile.clear()
 
 ProfileView.view()
 
+### Try on SubHunt
+
+using Revise
+using POMDPs
+using SubHunt
+using RLInterface
+using DeepQLearning
+using Flux
+ 
+solver = DeepQLearningSolver(qnetwork= Chain(Dense(8, 32, relu), Dense(32,32,relu), Dense(32, 6)), 
+                             max_steps=100_000)
+solve(solver, SubHuntPOMDP())
+
 
 
 ### get q_sa 

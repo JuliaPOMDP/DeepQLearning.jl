@@ -5,6 +5,7 @@ using Flux
 using Random
 using RLInterface
 using Test
+srand(1) # for test consistency
 
 include("test_env.jl")
 

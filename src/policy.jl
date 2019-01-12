@@ -1,10 +1,28 @@
 abstract type AbstractNNPolicy  <: Policy end
 
+## NN Policy interface
+
+"""
+    getnetwork(policy)
+    return the  value network of the policy 
+"""
+function getnetwork end 
+
+"""
+    reset!(policy)
+reset the hidden states of a policy
+"""
+function reset! end
+
 struct NNPolicy{P <: Union{MDP, POMDP}, Q, A} <: AbstractNNPolicy 
     problem::P
     qnetwork::Q
     action_map::Vector{A}
     n_input_dims::Int64
+end
+
+function getnetwork(policy::NNPolicy)
+    return policy.qnetwork
 end
 
 function reset!(policy::NNPolicy)

@@ -55,7 +55,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
 end
 
 function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, policy::AbstractNNPolicy, replay)
-    active_q = solver.qnetwork # shallow copy
+    active_q = getnetwork(policy) # shallow copy
     target_q = deepcopy(active_q)
     optimizer = ADAM(Flux.params(active_q), solver.learning_rate)
     # start training
@@ -69,6 +69,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     saved_mean_reward = -Inf
     scores_eval = -Inf
     model_saved = false
+    eval_next = false
     for t=1:solver.max_steps 
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
         ai = actionindex(env.problem, act)
@@ -79,6 +80,15 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         step += 1
         episode_rewards[end] += rew
         if done || step >= solver.max_episode_length
+            if eval_next # wait for episode to end before evaluating
+                scores_eval = evaluation(solver.evaluation_policy, 
+                policy, env,                                  
+                solver.num_ep_eval,
+                solver.max_episode_length,
+                solver.verbose)
+                eval_next = false 
+            end
+
             obs = reset(env)
             reset!(policy)
             push!(episode_steps, step)
@@ -102,13 +112,16 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         end
 
         if t%solver.eval_freq == 0
-            saved_state = env.state
+            eval_next = true
+        end
+
+        if  eval_next && (done || step >= solver.max_episode_length) # wait for episode to end before evaluating
             scores_eval = evaluation(solver.evaluation_policy, 
-                                 policy, env,                                  
-                                 solver.num_ep_eval,
-                                 solver.max_episode_length,
-                                 solver.verbose)
-            env.state = saved_state
+                            policy, env,                                  
+                            solver.num_ep_eval,
+                            solver.max_episode_length,
+                            solver.verbose)
+            eval_next = false 
         end
 
         if t%solver.log_freq == 0
@@ -127,7 +140,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         if solver.verbose
             @printf("Restore model with eval reward %1.3f \n", saved_mean_reward)
             saved_model = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
-            Flux.loadparams!(policy.qnetwork, saved_model)
+            Flux.loadparams!(getnetwork(policy), saved_model)
         end
     end
     return policy
@@ -152,8 +165,8 @@ function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnvironmen
     end
     policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
     weights = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
-    Flux.loadparams!(policy.qnetwork, weights)
-    Flux.testmode!(policy.qnetwork)
+    Flux.loadparams!(getnetwork(policy), weights)
+    Flux.testmode!(getnetwork(policy))
     return policy
 end
 
@@ -172,17 +185,15 @@ end
 
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
-                      policy::NNPolicy,
+                      policy::AbstractNNPolicy,
                       optimizer,
                       target_q,
                       s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
-    active_q = policy.qnetwork
+    active_q = getnetwork(policy)
     loss_tracked, td_tracked = q_learning_loss(solver, env, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
     loss_val = loss_tracked.data
     td_vals = Flux.data.(td_tracked)
     Flux.back!(loss_tracked)
-    @show active_q
-    @show params(active_q)
     grad_norm = globalnorm(params(active_q))
     optimizer()
     return loss_val, td_vals, grad_norm
@@ -221,7 +232,7 @@ function batch_train!(solver::DeepQLearningSolver,
                       target_q,
                       replay::PrioritizedReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
-    loss_val, td_vals, grad_norm = batch_train!(solver, env, policy, optimizer, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+    loss_val, td_vals, grad_norm = batch_train!(solver, env, policy, optimizer, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
     update_priorities!(replay, indices, td_vals)
     return loss_val, td_vals, grad_norm
 end
@@ -229,11 +240,11 @@ end
 # for RNNs
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
-                      policy::NNPolicy,
+                      policy::AbstractNNPolicy,
                       optimizer, 
                       target_q,
                       replay::EpisodeReplayBuffer)
-    active_q = policy.qnetwork
+    active_q = getnetwork(policy)
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
     Flux.reset!(active_q)
     Flux.reset!(target_q)
