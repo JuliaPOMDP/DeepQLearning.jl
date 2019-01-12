@@ -12,11 +12,10 @@ using POMDPPolicies
 using RLInterface
 using LinearAlgebra
 
-export AbstractDQNSolver,
-       DeepQLearningSolver,
+export DeepQLearningSolver,
        AbstractNNPolicy,
        NNPolicy,
-       qnetwork,
+       getnetwork,
        DQExperience,
        restore_best_model,
        ReplayBuffer,
