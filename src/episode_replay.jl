@@ -105,7 +105,7 @@ function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
     episode = DQExperience[]
     sizehint!(episode, max_steps)
     # start simulation
-    o = reset(env)
+    o = reset!(env)
     done = false
     step = 1
     while !done && step < max_steps

@@ -86,7 +86,7 @@ end
 
 function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractEnvironment;
                                  max_pop::Int64=replay.max_size, max_steps::Int64=100)
-    o = reset(env)
+    o = reset!(env)
     done = false
     step = 0
     for t=1:(max_pop - replay._curr_size)
@@ -99,7 +99,7 @@ function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractE
         # println(o, " ", action, " ", rew, " ", done, " ", info) #TODO verbose?
         step += 1
         if done || step >= max_steps
-            o = reset(env)
+            o = reset!(env)
             done = false
             step = 0
         end

@@ -60,7 +60,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     optimizer = ADAM(Flux.params(active_q), solver.learning_rate)
     # start training
     reset!(policy)
-    obs = reset(env)
+    obs = reset!(env)
     done = false
     step = 0
     rtot = 0
@@ -89,7 +89,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                 eval_next = false 
             end
 
-            obs = reset(env)
+            obs = reset!(env)
             reset!(policy)
             push!(episode_steps, step)
             push!(episode_rewards, 0.0)

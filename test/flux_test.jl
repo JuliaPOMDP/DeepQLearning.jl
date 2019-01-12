@@ -95,7 +95,7 @@ target_q = deepcopy(model)
 
 
 # s_batch is of size (intput_dims..., bs)
-o = reset(env)
+o = reset!(env)
 model(o[:])
 
 model(flatten(s_batch))
