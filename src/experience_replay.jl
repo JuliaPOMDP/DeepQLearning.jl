@@ -1,39 +1,47 @@
-struct DQExperience
-    s::Array{Float64}
-    a::Int64
-    r::Float64
-    sp::Array{Float64}
+struct DQExperience{N <: Real,T <: Real}
+    s::Array{T}
+    a::N
+    r::T
+    sp::Array{T}
     done::Bool
 end
 
-mutable struct ReplayBuffer
+function Base.convert(::Type{DQExperience{Int32, Float32}}, x::DQExperience{Int64, Float64})
+    return DQExperience{Int32, Float32}(convert(Array{Float32}, x.s),
+                 convert(Int32, x.a),
+                 convert(Float32, x.r),
+                 convert(Array{Float32}, x.sp),
+                 x.done)
+end
+
+mutable struct ReplayBuffer{N <: Real, T <: Real}
     max_size::Int64 # maximum size of the buffer
     batch_size::Int64
     rng::AbstractRNG
     _curr_size::Int64
     _idx::Int64
-    _experience::Vector{DQExperience}
+    _experience::Vector{DQExperience{N,T}}
 
-    _s_batch::Array{Float64}
-    _a_batch::Vector{Int64}
-    _r_batch::Vector{Float64}
-    _sp_batch::Array{Float64}
+    _s_batch::Array{T}
+    _a_batch::Vector{N}
+    _r_batch::Vector{T}
+    _sp_batch::Array{T}
     _done_batch::Vector{Bool}
+end
 
-    function ReplayBuffer(env::AbstractEnvironment,
-                          max_size::Int64,
-                          batch_size::Int64,
-                          rng::AbstractRNG = MersenneTwister(0))
-        s_dim = obs_dimensions(env)
-        experience = Vector{DQExperience}(undef, max_size)
-        _s_batch = zeros(s_dim..., batch_size)
-        _a_batch = zeros(Int64, batch_size)
-        _r_batch = zeros(batch_size)
-        _sp_batch = zeros(s_dim..., batch_size)
-        _done_batch = zeros(Bool, batch_size)
-        return new(max_size, batch_size, rng, 0, 1, experience,
-                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch)
-    end
+function ReplayBuffer(env::AbstractEnvironment,
+                        max_size::Int64,
+                        batch_size::Int64,
+                        rng::AbstractRNG = MersenneTwister(0))
+    s_dim = obs_dimensions(env)
+    experience = Vector{DQExperience{Int32, Float32}}(undef, max_size)
+    _s_batch = zeros(Float32, s_dim..., batch_size)
+    _a_batch = zeros(Int32, batch_size)
+    _r_batch = zeros(Float32, batch_size)
+    _sp_batch = zeros(Float32, s_dim..., batch_size)
+    _done_batch = zeros(Bool, batch_size)
+    return ReplayBuffer(max_size, batch_size, rng, 0, 1, experience,
+                _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch)
 end
 
 is_full(r::ReplayBuffer) = r._curr_size == r.max_size
@@ -41,7 +49,7 @@ is_full(r::ReplayBuffer) = r._curr_size == r.max_size
 max_size(r::ReplayBuffer) = r.max_size
 
 function add_exp!(r::ReplayBuffer, expe::DQExperience)
-    r._experience[r._idx] = expe
+    r._experience[r._idx] = convert(DQExperience{Int32, Float32}, expe)
     r._idx = mod1((r._idx + 1),r.max_size)
     if r._curr_size < r.max_size
         r._curr_size += 1

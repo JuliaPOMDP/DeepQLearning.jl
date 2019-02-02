@@ -16,9 +16,9 @@ export DeepQLearningSolver,
        AbstractNNPolicy,
        NNPolicy,
        getnetwork,
+       resetstate!,
        DQExperience,
        restore_best_model,
-       ReplayBuffer,
        PrioritizedReplayBuffer,
        EpisodeReplayBuffer,
     
@@ -32,7 +32,6 @@ include("helpers.jl")
 include("policy.jl")
 include("exploration_policy.jl")
 include("evaluation_policy.jl")
-include("experience_replay.jl")
 include("prioritized_experience_replay.jl")
 include("episode_replay.jl")
 include("dueling.jl")

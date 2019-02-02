@@ -1,6 +1,22 @@
 # Naive implementation
 
-mutable struct PrioritizedReplayBuffer
+struct DQExperience{N <: Real,T <: Real}
+    s::Array{T}
+    a::N
+    r::T
+    sp::Array{T}
+    done::Bool
+end
+
+function Base.convert(::Type{DQExperience{Int32, Float32}}, x::DQExperience{Int64, Float64})
+    return DQExperience{Int32, Float32}(convert(Array{Float32}, x.s),
+                 convert(Int32, x.a),
+                 convert(Float32, x.r),
+                 convert(Array{Float32}, x.sp),
+                 x.done)
+end
+
+mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat}
     max_size::Int64
     batch_size::Int64
     rng::AbstractRNG
@@ -9,35 +25,35 @@ mutable struct PrioritizedReplayBuffer
     ϵ::Float64
     _curr_size::Int64
     _idx::Int64
-    _priorities::Vector{Float64}
-    _experience::Vector{DQExperience}
+    _priorities::Vector{T}
+    _experience::Vector{DQExperience{N,T}}
 
-    _s_batch::Array{Float64}
-    _a_batch::Vector{Int64}
-    _r_batch::Vector{Float64}
-    _sp_batch::Array{Float64}
+    _s_batch::Array{T}
+    _a_batch::Vector{N}
+    _r_batch::Vector{T}
+    _sp_batch::Array{T}
     _done_batch::Vector{Bool}
-    _weights_batch::Vector{Float64}
+    _weights_batch::Vector{T}
+end
 
-    function PrioritizedReplayBuffer(env::AbstractEnvironment,
-                                    max_size::Int64,
-                                    batch_size::Int64;
-                                    rng::AbstractRNG = MersenneTwister(0),
-                                    α::Float64 = 0.6,
-                                    β::Float64 = 0.4,
-                                    ϵ::Float64 = 1e-3)
-        s_dim = obs_dimensions(env)
-        experience = Vector{DQExperience}(undef, max_size)
-        priorities = Vector{Float64}(undef, max_size)
-        _s_batch = zeros(s_dim..., batch_size)
-        _a_batch = zeros(Int64, batch_size)
-        _r_batch = zeros(batch_size)
-        _sp_batch = zeros(s_dim..., batch_size)
-        _done_batch = zeros(Bool, batch_size)
-        _weights_batch = zeros(Float64, batch_size)
-        return new(max_size, batch_size, rng, α, β, ϵ, 0, 1, priorities, experience,
-                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _weights_batch)
-    end
+function PrioritizedReplayBuffer(env::AbstractEnvironment,
+                                max_size::Int64,
+                                batch_size::Int64;
+                                rng::AbstractRNG = MersenneTwister(0),
+                                α::Float64 = 0.6,
+                                β::Float64 = 0.4,
+                                ϵ::Float64 = 1e-3)
+    s_dim = obs_dimensions(env)
+    experience = Vector{DQExperience{Int32, Float32}}(undef, max_size)
+    priorities = Vector{Float32}(undef, max_size)
+    _s_batch = zeros(Float32, s_dim..., batch_size)
+    _a_batch = zeros(Int32, batch_size)
+    _r_batch = zeros(Float32, batch_size)
+    _sp_batch = zeros(Float32, s_dim..., batch_size)
+    _done_batch = zeros(Bool, batch_size)
+    _weights_batch = zeros(Float32, batch_size)
+    return PrioritizedReplayBuffer(max_size, batch_size, rng, α, β, ϵ, 0, 1, priorities, experience,
+                _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _weights_batch)
 end
 
 
@@ -45,7 +61,7 @@ is_full(r::PrioritizedReplayBuffer) = r._curr_size == r.max_size
 
 max_size(r::PrioritizedReplayBuffer) = r.max_size
 
-function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float64=abs(expe.r))
+function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::T=abs(expe.r)) where T
     @assert td_err + r.ϵ > 0.
     priority = (td_err + r.ϵ)^r.α
     r._experience[r._idx] = expe
@@ -56,7 +72,7 @@ function add_exp!(r::PrioritizedReplayBuffer, expe::DQExperience, td_err::Float6
     end
 end
 
-function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::Vector{Float64})
+function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::V) where V <: AbstractArray
     new_priorities = (abs.(td_errors) .+ r.ϵ).^r.α
     @assert all(new_priorities .> 0.)
     r._priorities[indices] = new_priorities
