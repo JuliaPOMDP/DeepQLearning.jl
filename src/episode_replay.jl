@@ -1,54 +1,54 @@
 # Replay buffer that store full episodes
 
-mutable struct EpisodeReplayBuffer
+mutable struct EpisodeReplayBuffer{N<:Integer, T<:AbstractFloat}
     max_size::Int64
     batch_size::Int64
     trace_length::Int64
     rng::AbstractRNG
     _curr_size::Int64
     _idx::Int64
-    _experience::Vector{Vector{DQExperience}}
+    _experience::Vector{Vector{DQExperience{N,T}}}
 
-    _s_batch::Vector{Array{Float64}}
-    _a_batch::Vector{Array{Int64}}
-    _r_batch::Vector{Array{Float64}}
-    _sp_batch::Vector{Array{Float64}}
+    _s_batch::Vector{Array{T}}
+    _a_batch::Vector{Array{N}}
+    _r_batch::Vector{Array{T}}
+    _sp_batch::Vector{Array{T}}
     _done_batch::Vector{Array{Bool}}
-    _trace_mask::Vector{Array{Int64}}
-    _episode::Vector{DQExperience}
+    _trace_mask::Vector{Array{N}}
+    _episode::Vector{DQExperience{N, T}}
+end
 
-    function EpisodeReplayBuffer(env::AbstractEnvironment,
-                          max_size::Int64,
-                          batch_size::Int64,
-                          trace_length::Int64,
-                          rng::AbstractRNG = MersenneTwister(0))
-        s_dim = obs_dimensions(env)
-        experience = Vector{Vector{DQExperience}}(undef, max_size)
-        _s_batch = [zeros(s_dim..., batch_size) for i=1:trace_length]
-        _a_batch = [zeros(Int64, batch_size) for i=1:trace_length]
-        _r_batch = [zeros(batch_size) for i=1:trace_length]
-        _sp_batch = [zeros(s_dim..., batch_size) for i=1:trace_length]
-        _done_batch = [zeros(Bool, batch_size) for i=1:trace_length]
-        _trace_mask = [zeros(Int64, batch_size) for i=1:trace_length]
-        _episode = Vector{DQExperience}()
-        return new(max_size, batch_size, trace_length, rng, 0, 1, experience,
-                   _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _trace_mask, _episode)
-    end
+function EpisodeReplayBuffer(env::AbstractEnvironment,
+                        max_size::Int64,
+                        batch_size::Int64,
+                        trace_length::Int64,
+                        rng::AbstractRNG = MersenneTwister(0))
+    s_dim = obs_dimensions(env)
+    experience = Vector{Vector{DQExperience{Int32, Float32}}}(undef, max_size)
+    _s_batch = [zeros(Float32, s_dim..., batch_size) for i=1:trace_length]
+    _a_batch = [zeros(Int32, batch_size) for i=1:trace_length]
+    _r_batch = [zeros(Float32, batch_size) for i=1:trace_length]
+    _sp_batch = [zeros(Float32, s_dim..., batch_size) for i=1:trace_length]
+    _done_batch = [zeros(Bool, batch_size) for i=1:trace_length]
+    _trace_mask = [zeros(Int32, batch_size) for i=1:trace_length]
+    _episode = Vector{DQExperience{Int32, Float32}}()
+    return EpisodeReplayBuffer{Int32, Float32}(max_size, batch_size, trace_length, rng, 0, 1, experience,
+                _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _trace_mask, _episode)
 end
 
 is_full(r::EpisodeReplayBuffer) = r._curr_size == r.max_size
 
 max_size(r::EpisodeReplayBuffer) = r.max_size
 
-function add_exp!(r::EpisodeReplayBuffer, exp::DQExperience)
+function add_exp!(r::EpisodeReplayBuffer{N, T}, exp::DQExperience) where {N, T}
     push!(r._episode, exp)
     if exp.done
         add_episode!(r, r._episode)
-        r._episode = Vector{DQExperience}()
+        r._episode = Vector{DQExperience{N, T}}()
     end
 end
 
-function add_episode!(r::EpisodeReplayBuffer, ep::Vector{DQExperience})
+function add_episode!(r::EpisodeReplayBuffer{N ,T}, ep::Vector{DQExperience{Int32, Float32}}) where {N,T}
     r._experience[r._idx] = ep
     r._idx = mod1((r._idx + 1),r.max_size)
     if r._curr_size < r.max_size
@@ -102,17 +102,17 @@ function populate_replay_buffer!(r::EpisodeReplayBuffer,
 end
 
 function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
-    episode = DQExperience[]
+    episode = DQExperience{Int32, Float32}[]
     sizehint!(episode, max_steps)
     # start simulation
-    o = reset(env)
+    o = reset!(env)
     done = false
     step = 1
     while !done && step < max_steps
         action = sample_action(env)
         ai = actionindex(env.problem, action)
         op, rew, done, info = step!(env, action)
-        exp = DQExperience(o, ai, rew, op, done)
+        exp = DQExperience{Int32, Float32}(o, ai, rew, op, done)
         push!(episode, exp)
         o = op
         step += 1

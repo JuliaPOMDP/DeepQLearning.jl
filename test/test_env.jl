@@ -40,7 +40,7 @@ function POMDPs.actions(mdp::TestMDP)
     return 1:4
 end
 
-POMDPs.actionindex(mdp::TestMDP, a::Int64) = a
+POMDPs.actionindex(mdp::TestMDP, a::T) where T<:Integer = a
 
 # s2o(s::Int64, pomdp::TestPOMDP) = observations(pomdp)[s]
 
@@ -50,7 +50,7 @@ function POMDPs.initialstate(mdp::TestMDP, rng::AbstractRNG)
     return (init_s, init_t)
 end
 
-function POMDPs.convert_s(t::Type{V},s::Tuple{Vector{Int64}, Int64}, mdp::TestMDP) where V<:AbstractArray{Float64}
+function POMDPs.convert_s(t::Type{V}, s::Tuple{Vector{T}, T}, mdp::TestMDP) where {T,V<:AbstractArray}
     obs = zeros(mdp.shape..., mdp.o_stack)
     for i=1:mdp.o_stack
         obs[Base.setindex(axes(obs), i, ndims(obs))...] = observations(mdp)[s[1][end-i+1]]
@@ -58,11 +58,11 @@ function POMDPs.convert_s(t::Type{V},s::Tuple{Vector{Int64}, Int64}, mdp::TestMD
     return obs./255.0
 end
 
-function was_in_second(s::Tuple{Vector{Int64}, Int64})
+function was_in_second(s::Tuple{Vector{T}, T}) where T<:Integer
     s[1][end] == 2
 end
 
-function POMDPs.generate_s(mdp::TestMDP, s::Tuple{Vector{Int64}, Int64}, a::Int64, rng::AbstractRNG)
+function POMDPs.generate_s(mdp::TestMDP, s::Tuple{Vector{T}, T}, a::T, rng::AbstractRNG) where T <: Integer
     t_new = s[2] + 1 # increment time
     s_new = circshift(s[1], -1)
     if a < 4
@@ -73,7 +73,7 @@ function POMDPs.generate_s(mdp::TestMDP, s::Tuple{Vector{Int64}, Int64}, a::Int6
     return (s_new, t_new)
 end
 
-function POMDPs.reward(mdp::TestMDP, s::Tuple{Vector{Int64}, Int64}, a::Int64, sp::Tuple{Vector{Int64}, Int64})
+function POMDPs.reward(mdp::TestMDP, s::Tuple{Vector{T}, T}, a::T, sp::Tuple{Vector{T}, T}) where T <: Integer
     r = mdp._rewards[sp[1][end]]
     if was_in_second(s)
         r *= -10

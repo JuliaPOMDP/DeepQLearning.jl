@@ -1,5 +1,19 @@
 abstract type AbstractNNPolicy  <: Policy end
 
+## NN Policy interface
+
+"""
+    getnetwork(policy)
+    return the  value network of the policy 
+"""
+function getnetwork end 
+
+"""
+    resetstate!(policy)
+reset the hidden states of a policy
+"""
+function resetstate! end
+
 struct NNPolicy{P <: Union{MDP, POMDP}, Q, A} <: AbstractNNPolicy 
     problem::P
     qnetwork::Q
@@ -7,7 +21,11 @@ struct NNPolicy{P <: Union{MDP, POMDP}, Q, A} <: AbstractNNPolicy
     n_input_dims::Int64
 end
 
-function reset!(policy::NNPolicy)
+function getnetwork(policy::NNPolicy)
+    return policy.qnetwork
+end
+
+function resetstate!(policy::NNPolicy)
     Flux.reset!(policy.qnetwork)
 end
 
@@ -21,7 +39,7 @@ function _action(policy::NNPolicy{P,Q,A}, o::AbstractArray{T, N}) where {P<:Unio
     end
 end
 
-function POMDPPolicies.actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
+function _actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
         return policy.qnetwork(obatch)
@@ -45,6 +63,14 @@ end
 
 function POMDPs.action(policy::NNPolicy{P}, o) where {P <: POMDP}
     _action(policy, convert_o(Array{Float64}, o, policy.problem))
+end
+
+function POMDPPolicies.actionvalues(policy::NNPolicy{P}, s) where {P<:MDP}
+    _actionvalues(policy, convert_s(Array{Float64}, s, policy.problem))
+end
+
+function POMDPPolicies.actionvalues(policy::NNPolicy{P}, o) where {P<:POMDP}
+    _actionvalues(policy, convert_o(Array{Float64}, o, policy.problem))
 end
 
 function POMDPs.value(policy::NNPolicy{P}, s) where {P <: MDP}

@@ -89,7 +89,14 @@ If the observation is a multi-dimensional array (e.g. an image), one can use the
 
 The input size of the network is problem dependent and must be specified when you create the q network.
 
+This package exports the type `AbstractNNPolicy` which represents neural network based policy. In addition to the functions from `POMDPs.jl`, `AbstractNNPolicy` objects supports the following: 
+    - `getnetwork(policy)`: returns the value network of the policy 
+    - `resetstate!(policy)`: reset the hidden states of a policy (does nothing if it is not an RNN)
+
 ## Saving/Reloading model 
 
 See [Flux.jl documentation](http://fluxml.ai/Flux.jl/stable/saving.html) for saving and loading models. The DeepQLearning solver saves the weights of the Q-network as a `bson` file in `solver.logdir/"qnetwork.bson"`.
 
+## TODOs
+
+[ ] - log training information
