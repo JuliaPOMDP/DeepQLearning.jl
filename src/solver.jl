@@ -145,7 +145,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     if model_saved
         if solver.verbose
             @printf("Restore model with eval reward %1.3f \n", saved_mean_reward)
-            saved_model = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
+            saved_model = BSON.load(joinpath(solver.logdir, "qnetwork.bson"))[:qnetwork]
             Flux.loadparams!(getnetwork(policy), saved_model)
         end
     end
@@ -174,8 +174,9 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = loss_tracked.data
     td_vals = Flux.data(td_tracked)
     p = params(active_q)
-    Flux.train!(x->x, p, [(loss_tracked, )], optimizer)
+    Flux.back!(loss_tracked)
     grad_norm = globalnorm(p)
+    Flux.Optimise._update_params!(optimizer, p)
     return loss_val, td_vals, grad_norm
 end
 
@@ -232,8 +233,9 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = Flux.data(loss_tracked)
     td_vals = Flux.data(td_tracked)
     p = params(active_q)
-    Flux.train!(x->x, p, [(loss_tracked, )], optimizer)
-    grad_norm = globalnorm(params(active_q))
+    Flux.back!(loss_tracked)
+    grad_norm = globalnorm(p)
+    Flux.Optimise._update_params!(optimizer, p)
     return loss_val, td_vals, grad_norm
 end
 
@@ -241,7 +243,7 @@ end
 function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool)
     if scores_eval >= saved_mean_reward
         weights = Tracker.data.(params(active_q))
-        bson(solver.logdir*"qnetwork.bson", qnetwork=weights)
+        bson(joinpath(solver.logdir, "qnetwork.bson"), qnetwork=weights)
         if solver.verbose
             @printf("Saving new model with eval reward %1.3f \n", scores_eval)
         end
