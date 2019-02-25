@@ -15,9 +15,10 @@ git:
 ## uncomment the following lines to override the default test script
 
 script:
+  - git clone https://github.com/JuliaRegistries/General  $(julia -e 'import Pkg; println(joinpath(Pkg.depots1(), "registries", "General"))')  
+  - git clone https://github.com/JuliaPOMDP/Registry  $(julia -e 'import Pkg; println(joinpath(Pkg.depots1(), "registries", "JuliaPOMDP"))')  
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
   - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/PhilipVinc/TensorBoardLogger.jl"))'
-  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/JuliaPOMDP/RLInterface.jl"))'
   - julia --project --color=yes --check-bounds=yes -e 'import Pkg; Pkg.build(); Pkg.test("DeepQLearning"; coverage=true)' 
 after_success:
   # push coverage results to Coveralls
