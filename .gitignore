@@ -4,3 +4,4 @@
 *log**/
 log*
 *.bson
+events.out.tfevents*

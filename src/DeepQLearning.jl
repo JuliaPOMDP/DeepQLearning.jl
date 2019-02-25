@@ -11,6 +11,7 @@ using POMDPModelTools
 using POMDPPolicies
 using RLInterface
 using LinearAlgebra
+using TensorBoardLogger
 
 export DeepQLearningSolver,
        AbstractNNPolicy,

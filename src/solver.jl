@@ -23,7 +23,7 @@
     max_episode_length::Int64 = 100
     train_start::Int64 = 200
     rng::AbstractRNG = MersenneTwister(0)
-    logdir::String = ""
+    logdir::String = "log/"
     save_freq::Int64 = 3000
     log_freq::Int64 = 100
     verbose::Bool = true
@@ -55,6 +55,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
 end
 
 function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, policy::AbstractNNPolicy, replay)
+    logger = Logger(solver.logdir)
     active_q = getnetwork(policy) # shallow copy
     target_q = deepcopy(active_q)
     optimizer = ADAM(solver.learning_rate)
@@ -136,6 +137,10 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e \n",
                         t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
             end             
+            log_value(logger, "epsilon", eps, t)
+            log_value(logger, "avg_reward", avg100_reward, t)
+            log_value(logger, "loss", loss_val, t)
+            log_value(logger, "grad_val", grad_val, t)
         end
         if t > solver.train_start && t%solver.save_freq == 0
             model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)

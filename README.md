@@ -21,6 +21,7 @@ It supports the following innovations:
 ```Julia
 using Pkg
 Pkg.add(PackageSpec(url="https://github.com/JuliaPOMDP/RLInterface.jl"))
+Pkg.add(PackageSpec(url=https://github.com/PhilipVinc/TensorBoardLogger.jl))
 Pkg.add(PackageSpec(url="https://github.com/JuliaPOMDP/DeepQLearning.jl"))
 ```
 
