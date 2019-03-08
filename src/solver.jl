@@ -129,6 +129,8 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                             solver.max_episode_length,
                             solver.verbose)
             eval_next = false 
+            # add eval_reward
+            log_value(logger, "eval_reward", scores_eval, t)
         end
 
         if t%solver.log_freq == 0
