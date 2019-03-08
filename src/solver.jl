@@ -129,6 +129,8 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                             solver.max_episode_length,
                             solver.verbose)
             eval_next = false 
+            # add eval_reward
+            log_value(logger, "eval_reward", scores_eval, t)
         end
 
         if t%solver.log_freq == 0
@@ -141,8 +143,6 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
             log_value(logger, "avg_reward", avg100_reward, t)
             log_value(logger, "loss", loss_val, t)
             log_value(logger, "grad_val", grad_val, t)
-            # add eval_reward
-            log_value(logger, "eval_reward", scores_eval, t)
         end
         if t > solver.train_start && t%solver.save_freq == 0
             model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
