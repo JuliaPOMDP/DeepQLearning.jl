@@ -87,6 +87,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         step += 1
         episode_rewards[end] += rew
         if done || step >= solver.max_episode_length
+
             if eval_next # wait for episode to end before evaluating
                 scores_eval = evaluation(solver.evaluation_policy, 
                 policy, env,                                  
@@ -94,6 +95,8 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                 solver.max_episode_length,
                 solver.verbose)
                 eval_next = false 
+
+                log_value(logger, "eval_reward", scores_eval, t)
             end
 
             obs = reset!(env)
@@ -120,17 +123,6 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
 
         if t%solver.eval_freq == 0
             eval_next = true
-        end
-
-        if  eval_next && (done || step >= solver.max_episode_length) # wait for episode to end before evaluating
-            scores_eval = evaluation(solver.evaluation_policy, 
-                            policy, env,                                  
-                            solver.num_ep_eval,
-                            solver.max_episode_length,
-                            solver.verbose)
-            eval_next = false 
-            # add eval_reward
-            log_value(logger, "eval_reward", scores_eval, t)
         end
 
         if t%solver.log_freq == 0

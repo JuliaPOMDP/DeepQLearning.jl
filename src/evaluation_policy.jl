@@ -33,5 +33,5 @@ function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_
     if verbose
         println("Evaluation ... Avg Reward ", avg_r/n_eval)
     end
-    return  avg_r /= n_eval
+    return  avg_r / n_eval
 end
