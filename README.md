@@ -18,10 +18,14 @@ It supports the following innovations:
 
 ## Installation
 
+At the moment, DeepQLearning.jl does not support the latest changes in TensorBoardLogger. 
+Once a version of TensorBoardLogger.jl is released, this package will be updated. In the mean time, 
+make sure to checkout the right commit as follows.
+
 ```Julia
 using Pkg
 Pkg.add(PackageSpec(url="https://github.com/JuliaPOMDP/RLInterface.jl"))
-Pkg.add(PackageSpec(url="https://github.com/PhilipVinc/TensorBoardLogger.jl"))
+Pkg.add(PackageSpec(url="https://github.com/PhilipVinc/TensorBoardLogger.jl", rev="3aac24c74457d9cf6f922197f1a5d3f970ed1a96"))
 Pkg.add(PackageSpec(url="https://github.com/JuliaPOMDP/DeepQLearning.jl"))
 ```
 
