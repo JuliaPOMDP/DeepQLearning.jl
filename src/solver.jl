@@ -71,6 +71,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     scores_eval = -Inf
     model_saved = false
     eval_next = false
+    save_next = false
     for t=1:solver.max_steps 
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
         ai = actionindex(env.problem, act)
@@ -100,6 +101,11 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                 log_value(logger, "eval_steps", steps_eval, t)
             end
 
+            if save_next 
+                model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
+                save_next = false 
+            end
+
             obs = reset!(env)
             resetstate!(policy)
             push!(episode_steps, step)
@@ -122,23 +128,23 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
             Flux.loadparams!(target_q, weights)
         end
 
-        if t%solver.eval_freq == 0
+        if t > solver.train_start && t%solver.eval_freq == 0
             eval_next = true
+        end
+        if t > solver.train_start && t%solver.save_freq == 0
+            save_next = true
         end
 
         if t%solver.log_freq == 0
             #TODO log the training perf somewhere (?dataframes/csv?)
             if  solver.verbose
-                @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e \n",
-                        t, solver.max_steps, eps, avg100_reward, loss_val, grad_val)
+                @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | EvalR %1.3f \n",
+                        t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, scores_eval)
             end             
             log_value(logger, "epsilon", eps, t)
             log_value(logger, "avg_reward", avg100_reward, t)
             log_value(logger, "loss", loss_val, t)
             log_value(logger, "grad_val", grad_val, t)
-        end
-        if t > solver.train_start && t%solver.save_freq == 0
-            model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
         end
 
     end # end training
