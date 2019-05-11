@@ -1,5 +1,5 @@
 @with_kw mutable struct DeepQLearningSolver <: Solver
-    qnetwork::Any = nothing # intended to be a flux model 
+    qnetwork::Any = nothing # intended to be a flux model
     learning_rate::Float64 = 1e-4
     max_steps::Int64 = 1000
     batch_size::Int64 = 32
@@ -7,7 +7,7 @@
     eval_freq::Int64 = 500
     target_update_freq::Int64 = 500
     num_ep_eval::Int64 = 100
-    double_q::Bool = true 
+    double_q::Bool = true
     dueling::Bool = true
     recurrence::Bool = false
     eps_fraction::Float64 = 0.5
@@ -40,12 +40,12 @@ function POMDPs.solve(solver::DeepQLearningSolver, problem::POMDP)
 end
 
 function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
-    # check reccurence 
+    # check reccurence
     if isrecurrent(solver.qnetwork) && !solver.recurrence
         throw("DeepQLearningError: you passed in a recurrent model but recurrence is set to false")
     end
     replay = initialize_replay_buffer(solver, env)
-    if solver.dueling 
+    if solver.dueling
         active_q = create_dueling_network(solver.qnetwork)
     else
         active_q = solver.qnetwork
@@ -72,12 +72,12 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     model_saved = false
     eval_next = false
     save_next = false
-    for t=1:solver.max_steps 
+    for t=1:solver.max_steps
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
         ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, rew, op, done)
-        if solver.recurrence 
+        if solver.recurrence
             add_exp!(replay, exp)
         elseif solver.prioritized_replay
             add_exp!(replay, exp, abs(exp.r))
@@ -90,20 +90,21 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         if done || step >= solver.max_episode_length
 
             if eval_next # wait for episode to end before evaluating
-                scores_eval, steps_eval = evaluation(solver.evaluation_policy, 
-                policy, env,                                  
+                scores_eval, steps_eval = evaluation(solver.evaluation_policy,
+                policy, env,
                 solver.num_ep_eval,
                 solver.max_episode_length,
                 solver.verbose)
-                eval_next = false 
+                eval_next = false
+
+                # only save after evaluation
+                if save_next
+                    model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
+                    save_next = false
+                end
 
                 log_value(logger, "eval_reward", scores_eval, t)
                 log_value(logger, "eval_steps", steps_eval, t)
-            end
-
-            if save_next 
-                model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
-                save_next = false 
             end
 
             obs = reset!(env)
@@ -117,7 +118,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         num_episodes = length(episode_rewards)
         avg100_reward = mean(episode_rewards[max(1, length(episode_rewards)-101):end])
         avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
-        if t%solver.train_freq == 0       
+        if t%solver.train_freq == 0
             hs = hiddenstates(active_q)
             loss_val, td_errors, grad_val = batch_train!(solver, env, policy, optimizer, target_q, replay)
             sethiddenstates!(active_q, hs)
@@ -140,7 +141,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
             if  solver.verbose
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | EvalR %1.3f \n",
                         t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, scores_eval)
-            end             
+            end
             log_value(logger, "epsilon", eps, t)
             log_value(logger, "avg_reward", avg100_reward, t)
             log_value(logger, "loss", loss_val, t)
@@ -197,7 +198,7 @@ function q_learning_loss(solver::DeepQLearningSolver, env::AbstractEnvironment, 
     else
         q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
     end
-    q_targets = r_batch .+ convert(Vector{Float32}, (1.0 .- done_batch).*discount(env.problem)).*q_sp_max 
+    q_targets = r_batch .+ convert(Vector{Float32}, (1.0 .- done_batch).*discount(env.problem)).*q_sp_max
     td_tracked = q_sa .- q_targets
     loss_tracked = mean(huber_loss, importance_weights.*td_tracked)
     return loss_tracked, td_tracked
@@ -206,7 +207,7 @@ end
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
                       policy::AbstractNNPolicy,
-                      optimizer, 
+                      optimizer,
                       target_q,
                       replay::PrioritizedReplayBuffer)
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
@@ -221,7 +222,7 @@ end
 function batch_train!(solver::DeepQLearningSolver,
                       env::AbstractEnvironment,
                       policy::AbstractNNPolicy,
-                      optimizer, 
+                      optimizer,
                       target_q,
                       replay::EpisodeReplayBuffer)
     active_q = getnetwork(policy)
@@ -232,7 +233,7 @@ function batch_train!(solver::DeepQLearningSolver,
     td_tracked = Vector{Vector{Flux.Tracker.TrackedReal{Float32}}}(undef, solver.trace_length)
     for i=1:solver.trace_length
         loss_tracked_tmp, td_tracked_tmp = q_learning_loss(solver, env, active_q, target_q, s_batch[i], a_batch[i], r_batch[i], sp_batch[i], done_batch[i], trace_mask_batch[i])
-        loss_tracked += loss_tracked_tmp 
+        loss_tracked += loss_tracked_tmp
         td_tracked[i] = td_tracked_tmp
     end
     loss_tracked /= solver.trace_length
@@ -282,7 +283,7 @@ function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnvironmen
     return policy
 end
 
-@POMDP_require solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin 
+@POMDP_require solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin
     P = typeof(mdp)
     S = statetype(P)
     A = actiontype(P)
