@@ -18,7 +18,6 @@ script:
   - git clone https://github.com/JuliaRegistries/General  $(julia -e 'import Pkg; println(joinpath(Pkg.depots1(), "registries", "General"))')  
   - git clone https://github.com/JuliaPOMDP/Registry  $(julia -e 'import Pkg; println(joinpath(Pkg.depots1(), "registries", "JuliaPOMDP"))')  
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/PhilipVinc/TensorBoardLogger.jl", rev="3aac24c74457d9cf6f922197f1a5d3f970ed1a96"))'
   - julia --project --color=yes --check-bounds=yes -e 'import Pkg; Pkg.build(); Pkg.test("DeepQLearning"; coverage=true)' 
 after_success:
   # push coverage results to Coveralls
