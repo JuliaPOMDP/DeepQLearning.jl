@@ -181,9 +181,11 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = loss_tracked.data
     td_vals = Flux.data(td_tracked)
     p = params(active_q)
-    Flux.back!(loss_tracked)
-    grad_norm = globalnorm(p)
-    Flux.Optimise._update_params!(optimizer, p)
+    gs = Flux.gradient(p) do 
+        loss_tracked
+    end
+    grad_norm = globalnorm(gs)
+    Flux.Optimise.update!(optimizer, p, gs)
     return loss_val, td_vals, grad_norm
 end
 
@@ -240,9 +242,11 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = Flux.data(loss_tracked)
     td_vals = Flux.data(td_tracked)
     p = params(active_q)
-    Flux.back!(loss_tracked)
-    grad_norm = globalnorm(p)
-    Flux.Optimise._update_params!(optimizer, p)
+    gs = Flux.gradient(p) do 
+        loss_tracked
+    end
+    grad_norm = globalnorm(gs)
+    Flux.Optimise.update!(optimizer, p, gs)
     return loss_val, td_vals, grad_norm
 end
 
