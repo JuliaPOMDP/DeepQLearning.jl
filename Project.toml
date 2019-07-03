@@ -22,5 +22,8 @@ POMDPModels = "355abbd5-f08e-5560-ac9e-8b5f2592a0ca"
 POMDPSimulators = "e0d0a172-29c6-5d4e-96d0-f262df5d01fd"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[compat]
+Flux = "≥ 0.8.3"
+
 [targets]
 test = ["POMDPModels", "POMDPSimulators", "Test"]
