@@ -55,7 +55,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
 end
 
 function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, policy::AbstractNNPolicy, replay)
-    logger = Logger(solver.logdir)
+    logger = TBLogger(solver.logdir)
     active_q = getnetwork(policy) # shallow copy
     target_q = deepcopy(active_q)
     optimizer = ADAM(solver.learning_rate)
@@ -103,8 +103,8 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                     save_next = false
                 end
 
-                log_value(logger, "eval_reward", scores_eval, t)
-                log_value(logger, "eval_steps", steps_eval, t)
+                log_value(logger, "eval_reward", scores_eval, step = t)
+                log_value(logger, "eval_steps", steps_eval, step = t)
             end
 
             obs = reset!(env)
@@ -142,10 +142,10 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | EvalR %1.3f \n",
                         t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, scores_eval)
             end
-            log_value(logger, "epsilon", eps, t)
-            log_value(logger, "avg_reward", avg100_reward, t)
-            log_value(logger, "loss", loss_val, t)
-            log_value(logger, "grad_val", grad_val, t)
+            log_value(logger, "epsilon", eps, step = t)
+            log_value(logger, "avg_reward", avg100_reward, step = t)
+            log_value(logger, "loss", loss_val, step = t)
+            log_value(logger, "grad_val", grad_val, step = t)
         end
 
     end # end training
