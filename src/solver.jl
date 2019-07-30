@@ -56,6 +56,7 @@ end
 
 function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, policy::AbstractNNPolicy, replay)
     logger = TBLogger(solver.logdir)
+    solver.logdir = logger.logdir
     active_q = getnetwork(policy) # shallow copy
     target_q = deepcopy(active_q)
     optimizer = ADAM(solver.learning_rate)
@@ -90,7 +91,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         if done || step >= solver.max_episode_length
 
             if eval_next # wait for episode to end before evaluating
-                scores_eval, steps_eval = evaluation(solver.evaluation_policy,
+                scores_eval, steps_eval, info_eval = evaluation(solver.evaluation_policy,
                 policy, env,
                 solver.num_ep_eval,
                 solver.max_episode_length,
@@ -105,6 +106,9 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
 
                 log_value(logger, "eval_reward", scores_eval, step = t)
                 log_value(logger, "eval_steps", steps_eval, step = t)
+                for (k, v) in info_eval
+                    log_value(logger, k, v, step = t)
+                end
             end
 
             obs = reset!(env)

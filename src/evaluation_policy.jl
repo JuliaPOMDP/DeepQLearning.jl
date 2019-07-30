@@ -35,5 +35,5 @@ function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnvironment, n_
     if verbose
         @printf("Evaluation ... Avg Reward %2.2f | Avg Step %2.2f \n", avg_r/n_eval, avg_steps/n_eval)
     end
-    return  avg_r / n_eval, avg_steps / n_eval
+    return  avg_r / n_eval, avg_steps / n_eval, Dict()
 end
