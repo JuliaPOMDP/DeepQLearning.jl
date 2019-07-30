@@ -55,6 +55,38 @@ r_tot = simulate(sim, mdp, policy)
 println("Total discounted reward for 1 simulation: $r_tot")
 ```
 
+## Specifying exploration / evaluation policy
+
+An exploration policy and evaluation policy can be specified in the solver parameters. 
+
+An **exploration policy** can be provided in the form of a function that must return an action. The function provided will be called as follows: `f(policy, env, obs, global_step, rng)` where `policy` is the NN policy being trained, `env` the environment, `obs` the observation at which to take the action, `global_step` the interaction step of the solver, and `rng` a random number generator. This package provides by default an epsilon greedy policy with linear decrease of epsilon with `global_step`. 
+
+An **evaluation policy** can be provided in a similar manner. The function will be called as follows: `f(policy, env, n_eval, max_episode_length, verbose)` where `policy` is the NN policy being trained, `env` the environment, `n_eval` the number of evaluation episode, `max_episode_length` the maximum number of steps in one episode, and `verbose` a boolean to enable printing or not. The evaluation function must returns three elements:
+- Average total reward (Float), the average score per episode
+- Average number of steps (Float), the average number of steps taken per episode
+- Info, a dictionary mapping `String` to `Float` that can be used to log custom scalar values.
+
+## Q-Network
+
+The `qnetwork` options of the solver should accept any `Chain` object. It is expected that they will be multi-layer perceptrons or convolutional layers followed by dense layer. If the network is ending with dense layers, the `dueling` option will split all the dense layers at the end of the network. 
+
+If the observation is a multi-dimensional array (e.g. an image), one can use the `flattenbatch` function to flatten all the dimensions of the image. It is useful to connect convolutional layers and dense layers for example. `flattenbatch` will flatten all the dimensions but the batch size. 
+
+The input size of the network is problem dependent and must be specified when you create the q network.
+
+This package exports the type `AbstractNNPolicy` which represents neural network based policy. In addition to the functions from `POMDPs.jl`, `AbstractNNPolicy` objects supports the following: 
+    - `getnetwork(policy)`: returns the value network of the policy 
+    - `resetstate!(policy)`: reset the hidden states of a policy (does nothing if it is not an RNN)
+
+## Saving/Reloading model 
+
+See [Flux.jl documentation](http://fluxml.ai/Flux.jl/stable/saving.html) for saving and loading models. The DeepQLearning solver saves the weights of the Q-network as a `bson` file in `solver.logdir/"qnetwork.bson"`.
+
+## Logging
+
+Logging is done through [TensorBoardLogger.jl](https://github.com/PhilipVinc/TensorBoardLogger.jl). A log directory can be specified in the solver options. 
+
+
 ## Solver Options
 
 **Fields of the Q Learning solver:**
@@ -85,23 +117,3 @@ println("Total discounted reward for 1 simulation: $r_tot")
 - `rng::AbstractRNG` random number generator default = MersenneTwister(0)
 - `logdir::String = ""` folder in which to save the model
 - `verbose::Bool` default = true
-
-## Q-Network
-
-The `qnetwork` options of the solver should accept any `Chain` object. It is expected that they will be multi-layer perceptrons or convolutional layers followed by dense layer. If the network is ending with dense layers, the `dueling` option will split all the dense layers at the end of the network. 
-
-If the observation is a multi-dimensional array (e.g. an image), one can use the `flattenbatch` function to flatten all the dimensions of the image. It is useful to connect convolutional layers and dense layers for example. `flattenbatch` will flatten all the dimensions but the batch size. 
-
-The input size of the network is problem dependent and must be specified when you create the q network.
-
-This package exports the type `AbstractNNPolicy` which represents neural network based policy. In addition to the functions from `POMDPs.jl`, `AbstractNNPolicy` objects supports the following: 
-    - `getnetwork(policy)`: returns the value network of the policy 
-    - `resetstate!(policy)`: reset the hidden states of a policy (does nothing if it is not an RNN)
-
-## Saving/Reloading model 
-
-See [Flux.jl documentation](http://fluxml.ai/Flux.jl/stable/saving.html) for saving and loading models. The DeepQLearning solver saves the weights of the Q-network as a `bson` file in `solver.logdir/"qnetwork.bson"`.
-
-## TODOs
-
-[ ] - log training information
