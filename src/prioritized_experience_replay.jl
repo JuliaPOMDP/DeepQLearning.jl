@@ -101,14 +101,15 @@ function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
 end
 
 function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractEnvironment;
-                                 max_pop::Int64=replay.max_size, max_steps::Int64=100)
+                                 max_pop::Int64=replay.max_size, max_steps::Int64=100,
+                                 policy::Policy = RandomPolicy(env.problem))
     o = reset!(env)
     done = false
     step = 0
     for t=1:(max_pop - replay._curr_size)
-        action = sample_action(env)
-        ai = actionindex(env.problem, action)
-        op, rew, done, info = step!(env, action)
+        a = action(policy, o)
+        ai = actionindex(env.problem, a)
+        op, rew, done, info = step!(env, a)
         exp = DQExperience(o, ai, rew, op, done)
         add_exp!(replay, exp, abs(rew)) # assume initial td error is r
         o = op
