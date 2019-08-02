@@ -86,6 +86,28 @@ See [Flux.jl documentation](http://fluxml.ai/Flux.jl/stable/saving.html) for sav
 
 Logging is done through [TensorBoardLogger.jl](https://github.com/PhilipVinc/TensorBoardLogger.jl). A log directory can be specified in the solver options. 
 
+## GPU Support
+
+`DeepQLearning.jl` should support running the calculations on GPUs through the package [CuArrays.jl](https://github.com/JuliaGPU/CuArrays.jl).
+To run the solver on GPU you must first load `CuArrays` and then proceed as usual.
+
+```julia
+using CuArrays
+using DeepQLearning
+using POMDPs
+using Flux
+using POMDPModels
+
+mdp = SimpleGridWorld();
+
+# the model weights will be send to the gpu in the call to solve
+model = Chain(Dense(2, 32), Dense(32, n_actions(mdp)))
+
+solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, 
+                             learning_rate=0.005,log_freq=500,
+                             recurrence=false,double_q=true, dueling=true, prioritized_replay=true)
+policy = solve(solver, mdp)
+```
 
 ## Solver Options
 
