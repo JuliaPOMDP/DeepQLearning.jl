@@ -1,6 +1,6 @@
 @with_kw mutable struct DeepQLearningSolver <: Solver
     qnetwork::Any = nothing # intended to be a flux model
-    learning_rate::Float64 = 1e-4
+    learning_rate::Float32 = 1f-4
     max_steps::Int64 = 1000
     batch_size::Int64 = 32
     train_freq::Int64 = 4
@@ -10,15 +10,15 @@
     double_q::Bool = true
     dueling::Bool = true
     recurrence::Bool = false
-    eps_fraction::Float64 = 0.5
-    eps_end::Float64 = 0.01
+    eps_fraction::Float32 = 0.5f0
+    eps_end::Float32 = 0.01f0
     evaluation_policy::Any = basic_evaluation
     exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)
     trace_length::Int64 = 40
     prioritized_replay::Bool = true
-    prioritized_replay_alpha::Float64 = 0.6
-    prioritized_replay_epsilon::Float64 = 1e-6
-    prioritized_replay_beta::Float64 = 0.4
+    prioritized_replay_alpha::Float32 = 0.6f0
+    prioritized_replay_epsilon::Float32 = 1f-6
+    prioritized_replay_beta::Float32 = 0.4f0
     buffer_size::Int64 = 1000
     max_episode_length::Int64 = 100
     train_start::Int64 = 200
@@ -77,13 +77,13 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
         ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
-        exp = DQExperience(obs, ai, rew, op, done)
+        exp = DQExperience{Int32, Float32}(obs, ai, rew, op, done)
         if solver.recurrence
             add_exp!(replay, exp)
         elseif solver.prioritized_replay
             add_exp!(replay, exp, abs(exp.r))
         else
-            add_exp!(replay, exp, 0.0)
+            add_exp!(replay, exp, 0f0)
         end
         obs = op
         step += 1
@@ -180,7 +180,7 @@ function batch_train!(solver::DeepQLearningSolver,
                       optimizer,
                       target_q,
                       s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
-    active_q = getnetwork(policy)
+    active_q = getnetwork(policy) 
     loss_tracked, td_tracked = q_learning_loss(solver, env, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
     loss_val = loss_tracked.data
     td_vals = Flux.data(td_tracked)
@@ -194,6 +194,7 @@ function batch_train!(solver::DeepQLearningSolver,
 end
 
 function q_learning_loss(solver::DeepQLearningSolver, env::AbstractEnvironment, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
+    gpu.([active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights])
     q_values = active_q(s_batch)
     q_sa = diag(view(q_values, a_batch, :))
     if solver.double_q
@@ -204,7 +205,8 @@ function q_learning_loss(solver::DeepQLearningSolver, env::AbstractEnvironment, 
     else
         q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
     end
-    q_targets = r_batch .+ convert(Vector{Float32}, (1.0 .- done_batch).*discount(env.problem)).*q_sp_max
+    γ = Float32(discount(env.problem))
+    q_targets = r_batch .+ (1f0 .- done_batch) .* γ .* q_sp_max
     td_tracked = q_sa .- q_targets
     loss_tracked = mean(huber_loss, importance_weights.*td_tracked)
     return loss_tracked, td_tracked

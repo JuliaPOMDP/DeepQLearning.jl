@@ -13,7 +13,7 @@ end
 
 # Examples 
 
-function linear_epsilon_greedy(max_steps::Int64, eps_fraction::Float64, eps_end::Float64)
+function linear_epsilon_greedy(max_steps::Int64, eps_fraction::Float32, eps_end::Float32)
     function action_epsilon_greedy(policy::AbstractNNPolicy, env::AbstractEnvironment, obs, global_step::Int64, rng::AbstractRNG)
         eps = update_epsilon(global_step, eps_fraction, eps_end, max_steps)
         if rand(rng) > eps 
@@ -25,7 +25,7 @@ function linear_epsilon_greedy(max_steps::Int64, eps_fraction::Float64, eps_end:
     return action_epsilon_greedy
 end
 
-function update_epsilon(step::Int64, epsilon_fraction::Float64, epsilon_end::Float64, max_steps::Int64)
+function update_epsilon(step::Int64, epsilon_fraction::Float32, epsilon_end::Float32, max_steps::Int64)
     new_eps = 0.    
     if step < epsilon_fraction*max_steps
         new_eps = 1 - (1 - epsilon_end)/(epsilon_fraction*max_steps)*step # decay

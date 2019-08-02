@@ -11,11 +11,11 @@ end
     huber_loss(x, δ::Float64=1.0)
 Compute the Huber Loss
 """
-function huber_loss(x, δ::Float64=1.0)
+function huber_loss(x, δ::Float32=1f0)
     if abs(x) < δ
-        return 0.5*x^2
+        return 5f-1*x^2
     else
-        return δ*(abs(x) - 0.5*δ)
+        return δ*(abs(x) - 5f-1*δ)
     end
 end
 

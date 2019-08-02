@@ -32,6 +32,7 @@ end
 function _action(policy::NNPolicy{P,Q,A}, o::AbstractArray{T, N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
+        obatch |> gpu
         vals = policy.qnetwork(obatch)
         return policy.action_map[argmax(vals)]
     else 
@@ -42,6 +43,7 @@ end
 function _actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
+        obatch |> gpu
         return policy.qnetwork(obatch)
     else 
         throw("NNPolicyError: was expecting an array with $(policy.n_input_dims) dimensions, got $(ndims(o))")
@@ -50,7 +52,7 @@ end
 
 function _value(policy::NNPolicy{P}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},T<:Real,N}
     if ndims(o) == policy.n_input_dims
-        obatch = reshape(o, (size(o)...,1))
+        obatch = reshape(o, (size(o)...,1)) |> gpu
         return maximum(policy.qnetwork(obatch))
     else 
         throw("NNPolicyError: was expecting an array with $(policy.n_input_dims) dimensions, got $(ndims(o))")
@@ -58,25 +60,25 @@ function _value(policy::NNPolicy{P}, o::AbstractArray{T,N}) where {P<:Union{MDP,
 end
 
 function POMDPs.action(policy::NNPolicy{P}, s) where {P <: MDP}
-    _action(policy, convert_s(Array{Float64}, s, policy.problem))
+    _action(policy, convert_s(Array{Float32}, s, policy.problem))
 end
 
 function POMDPs.action(policy::NNPolicy{P}, o) where {P <: POMDP}
-    _action(policy, convert_o(Array{Float64}, o, policy.problem))
+    _action(policy, convert_o(Array{Float32}, o, policy.problem))
 end
 
 function POMDPPolicies.actionvalues(policy::NNPolicy{P}, s) where {P<:MDP}
-    _actionvalues(policy, convert_s(Array{Float64}, s, policy.problem))
+    _actionvalues(policy, convert_s(Array{Float32}, s, policy.problem))
 end
 
 function POMDPPolicies.actionvalues(policy::NNPolicy{P}, o) where {P<:POMDP}
-    _actionvalues(policy, convert_o(Array{Float64}, o, policy.problem))
+    _actionvalues(policy, convert_o(Array{Float32}, o, policy.problem))
 end
 
 function POMDPs.value(policy::NNPolicy{P}, s) where {P <: MDP}
-    _value(policy, convert_s(Array{Float64}, s, policy.problem))
+    _value(policy, convert_s(Array{Float32}, s, policy.problem))
 end
 
 function POMDPs.value(policy::NNPolicy{P}, o) where {P <: POMDP}
-    _value(policy, convert_o(Array{Float64}, o, policy.problem))
+    _value(policy, convert_o(Array{Float32}, o, policy.problem))
 end

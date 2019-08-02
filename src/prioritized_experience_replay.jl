@@ -20,9 +20,9 @@ mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat}
     max_size::Int64
     batch_size::Int64
     rng::AbstractRNG
-    α::Float64
-    β::Float64
-    ϵ::Float64
+    α::Float32
+    β::Float32
+    ϵ::Float32
     _curr_size::Int64
     _idx::Int64
     _priorities::Vector{T}
@@ -40,9 +40,9 @@ function PrioritizedReplayBuffer(env::AbstractEnvironment,
                                 max_size::Int64,
                                 batch_size::Int64;
                                 rng::AbstractRNG = MersenneTwister(0),
-                                α::Float64 = 0.6,
-                                β::Float64 = 0.4,
-                                ϵ::Float64 = 1e-3)
+                                α::Float32 = 6f-1,
+                                β::Float32 = 4f-1,
+                                ϵ::Float32 = 1f-3)
     s_dim = obs_dimensions(env)
     experience = Vector{DQExperience{Int32, Float32}}(undef, max_size)
     priorities = Vector{Float32}(undef, max_size)
