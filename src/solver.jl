@@ -77,7 +77,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
         ai = actionindex(env.problem, act)
         op, rew, done, info = step!(env, act)
-        exp = DQExperience{Int32, Float32}(obs, ai, rew, op, done)
+        exp = DQExperience(obs, ai, Float32(rew), op, done)
         if solver.recurrence
             add_exp!(replay, exp)
         elseif solver.prioritized_replay
@@ -206,6 +206,7 @@ function q_learning_loss(solver::DeepQLearningSolver, env::AbstractEnvironment, 
         q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
     end
     γ = Float32(discount(env.problem))
+    done_batch = convert.(Float32, done_batch)
     q_targets = r_batch .+ (1f0 .- done_batch) .* γ .* q_sp_max
     td_tracked = q_sa .- q_targets
     loss_tracked = mean(huber_loss, importance_weights.*td_tracked)

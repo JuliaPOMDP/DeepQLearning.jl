@@ -1,22 +1,22 @@
 # Naive implementation
 
-struct DQExperience{N <: Real,T <: Real}
-    s::Array{T}
+struct DQExperience{N <: Real,T <: Real, Q}
+    s::Array{T, Q}
     a::N
     r::T
-    sp::Array{T}
+    sp::Array{T, Q}
     done::Bool
 end
 
-function Base.convert(::Type{DQExperience{Int32, Float32}}, x::DQExperience{Int64, Float64})
-    return DQExperience{Int32, Float32}(convert(Array{Float32}, x.s),
+function Base.convert(::Type{DQExperience{Int32, Float32, C}}, x::DQExperience{A, B, C}) where {A, B, C}
+    return DQExperience{Int32, Float32, C}(convert(Array{Float32, C}, x.s),
                  convert(Int32, x.a),
                  convert(Float32, x.r),
-                 convert(Array{Float32}, x.sp),
+                 convert(Array{Float32, C}, x.sp),
                  x.done)
 end
 
-mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat}
+mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat, Q}
     max_size::Int64
     batch_size::Int64
     rng::AbstractRNG
@@ -26,7 +26,7 @@ mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat}
     _curr_size::Int64
     _idx::Int64
     _priorities::Vector{T}
-    _experience::Vector{DQExperience{N,T}}
+    _experience::Vector{DQExperience{N,T,Q}}
 
     _s_batch::Array{T}
     _a_batch::Vector{N}
@@ -44,7 +44,7 @@ function PrioritizedReplayBuffer(env::AbstractEnvironment,
                                 β::Float32 = 4f-1,
                                 ϵ::Float32 = 1f-3)
     s_dim = obs_dimensions(env)
-    experience = Vector{DQExperience{Int32, Float32}}(undef, max_size)
+    experience = Vector{DQExperience{Int32, Float32, length(s_dim)}}(undef, max_size)
     priorities = Vector{Float32}(undef, max_size)
     _s_batch = zeros(Float32, s_dim..., batch_size)
     _a_batch = zeros(Int32, batch_size)
@@ -87,13 +87,16 @@ end
 
 function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
     @assert length(sample_indices) == size(r._s_batch)[end]
+    
     for (i, idx) in enumerate(sample_indices)
+        @inbounds begin
         r._s_batch[Base.setindex(axes(r._s_batch), i, ndims(r._s_batch))...] = r._experience[idx].s
         r._a_batch[i] = r._experience[idx].a
         r._r_batch[i] = r._experience[idx].r
         r._sp_batch[Base.setindex(axes(r._sp_batch), i, ndims(r._sp_batch))...] = r._experience[idx].sp
         r._done_batch[i] = r._experience[idx].done
         r._weights_batch[i] = r._priorities[idx]
+        end
     end
     pi = r._weights_batch ./ sum(r._priorities[1:r._curr_size])
     weights = (r._curr_size * pi).^(-r.β)
@@ -108,10 +111,10 @@ function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractE
     step = 0
     for t=1:(max_pop - replay._curr_size)
         a = action(policy, o)
-        ai = convert(Int32, actionindex(env.problem, a))
+        ai = actionindex(env.problem, a)
         op, rew, done, info = step!(env, a)
-        exp = DQExperience(o, ai, rew, op, done)
-        add_exp!(replay, exp, abs(rew)) # assume initial td error is r
+        exp = DQExperience(o, ai, Float32(rew), op, done)
+        add_exp!(replay, exp, abs(Float32(rew))) # assume initial td error is r
         o = op
         # println(o, " ", action, " ", rew, " ", done, " ", info) #TODO verbose?
         step += 1
