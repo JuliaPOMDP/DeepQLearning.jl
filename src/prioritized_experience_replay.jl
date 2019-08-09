@@ -108,7 +108,7 @@ function populate_replay_buffer!(replay::PrioritizedReplayBuffer, env::AbstractE
     step = 0
     for t=1:(max_pop - replay._curr_size)
         a = action(policy, o)
-        ai = actionindex(env.problem, a)
+        ai = convert(Int32, actionindex(env.problem, a))
         op, rew, done, info = step!(env, a)
         exp = DQExperience(o, ai, rew, op, done)
         add_exp!(replay, exp, abs(rew)) # assume initial td error is r
