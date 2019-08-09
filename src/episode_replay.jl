@@ -1,13 +1,13 @@
 # Replay buffer that store full episodes
 
-mutable struct EpisodeReplayBuffer{N<:Integer, T<:AbstractFloat}
+mutable struct EpisodeReplayBuffer{N<:Integer, T<:AbstractFloat, Q}
     max_size::Int64
     batch_size::Int64
     trace_length::Int64
     rng::AbstractRNG
     _curr_size::Int64
     _idx::Int64
-    _experience::Vector{Vector{DQExperience{N,T}}}
+    _experience::Vector{Vector{DQExperience{N,T,Q}}}
 
     _s_batch::Vector{Array{T}}
     _a_batch::Vector{Array{N}}
@@ -15,7 +15,7 @@ mutable struct EpisodeReplayBuffer{N<:Integer, T<:AbstractFloat}
     _sp_batch::Vector{Array{T}}
     _done_batch::Vector{Array{Bool}}
     _trace_mask::Vector{Array{N}}
-    _episode::Vector{DQExperience{N, T}}
+    _episode::Vector{DQExperience{N,T,Q}}
 end
 
 function EpisodeReplayBuffer(env::AbstractEnvironment,
@@ -24,15 +24,16 @@ function EpisodeReplayBuffer(env::AbstractEnvironment,
                         trace_length::Int64,
                         rng::AbstractRNG = MersenneTwister(0))
     s_dim = obs_dimensions(env)
-    experience = Vector{Vector{DQExperience{Int32, Float32}}}(undef, max_size)
+    Q = length(s_dim)
+    experience = Vector{Vector{DQExperience{Int32, Float32, Q}}}(undef, max_size)
     _s_batch = [zeros(Float32, s_dim..., batch_size) for i=1:trace_length]
     _a_batch = [zeros(Int32, batch_size) for i=1:trace_length]
     _r_batch = [zeros(Float32, batch_size) for i=1:trace_length]
     _sp_batch = [zeros(Float32, s_dim..., batch_size) for i=1:trace_length]
     _done_batch = [zeros(Bool, batch_size) for i=1:trace_length]
     _trace_mask = [zeros(Int32, batch_size) for i=1:trace_length]
-    _episode = Vector{DQExperience{Int32, Float32}}()
-    return EpisodeReplayBuffer{Int32, Float32}(max_size, batch_size, trace_length, rng, 0, 1, experience,
+    _episode = Vector{DQExperience{Int32, Float32, Q}}()
+    return EpisodeReplayBuffer{Int32, Float32, Q}(max_size, batch_size, trace_length, rng, 0, 1, experience,
                 _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _trace_mask, _episode)
 end
 
@@ -48,7 +49,7 @@ function add_exp!(r::EpisodeReplayBuffer{N, T}, exp::DQExperience) where {N, T}
     end
 end
 
-function add_episode!(r::EpisodeReplayBuffer{N ,T}, ep::Vector{DQExperience{Int32, Float32}}) where {N,T}
+function add_episode!(r::EpisodeReplayBuffer{N ,T, Q}, ep::Vector{DQExperience{Int32, Float32, Q}}) where {N,T,Q}
     r._experience[r._idx] = ep
     r._idx = mod1((r._idx + 1),r.max_size)
     if r._curr_size < r.max_size
@@ -102,7 +103,8 @@ function populate_replay_buffer!(r::EpisodeReplayBuffer,
 end
 
 function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
-    episode = DQExperience{Int32, Float32}[]
+    s_dim = obs_dimensions(env)
+    episode = DQExperience{Int32, Float32, length(s_dim)}[]
     sizehint!(episode, max_steps)
     # start simulation
     o = reset!(env)
@@ -112,7 +114,7 @@ function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
         action = sample_action(env)
         ai = actionindex(env.problem, action)
         op, rew, done, info = step!(env, action)
-        exp = DQExperience{Int32, Float32}(o, ai, rew, op, done)
+        exp = DQExperience(o, ai, Float32(rew), op, done)
         push!(episode, exp)
         o = op
         step += 1
