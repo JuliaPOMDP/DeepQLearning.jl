@@ -3,38 +3,46 @@ using Random
 using POMDPs
 using POMDPModels
 using DeepQLearning
-# using ProfileView
 using Flux
-# using Profile
-using BenchmarkTools
+using FileIO
+using JLD2
 
-
-using Revise
-using Random
-using POMDPs
-using DeepQLearning
-using Flux
-using BenchmarkTools
 rng = MersenneTwister(1)
-includet("test/test_env.jl")
-mdp = TestMDP((5,5), 4, 6)
-model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, n_actions(mdp)))
+mdp = SimpleGridWorld()
+model = Chain(x->flattenbatch(x), Dense(2, 32, tanh), Dense(32, length(actions(mdp))))
 solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005, 
                                 eval_freq=2000,num_ep_eval=100,
                                 log_freq = 500,
-                                double_q = true, dueling=false, prioritized_replay=true,verbose=false,
+                                double_q = true, dueling=false, prioritized_replay=true,verbose=true,
                                 rng=rng)
 
 policy = solve(solver, mdp)
 
+@save "policy.jld2" policy 
 
+using StaticArrays
+
+@load "policy.jld2" policy
+
+using Revise
+using Random
+using BenchmarkTools
+using POMDPs
+using POMDPModelTools
+# using CuArrays
+using Flux
+using DeepQLearning
+include("test/test_env.jl")
+# mdp = TestMDP((5,5), 4, 6)
 # mdp = SimpleGridWorld()
-# mdp = TestMDP((5,5), 1, 6)
-# model = Chain(x-> flattenbatch(x), Dense(25, 32, relu), LSTM(32,32), Dense(32, 32, relu), Dense(32, n_actions(mdp)))
+rng = MersenneTwister(1)
+mdp = TestMDP((5,5), 1, 6)
+model = Chain(x-> flattenbatch(x), Dense(25, 32), Dense(32,32), Dense(32, 32, relu), Dense(32, length(actions(mdp))))
 
-# solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=false, max_steps=1000, learning_rate=0.001,log_freq=500,
-#                              recurrence=true,trace_length=10, double_q=false, dueling=false, rng=rng, verbose=false)
-# @btime policy = solve(solver, mdp)
+solver = DeepQLearningSolver(batch_size = 128, eval_freq = 10_000, save_freq=10_000, qnetwork = model, prioritized_replay=true, max_steps=1000, learning_rate=0.001,log_freq=5000,
+                             recurrence=false,trace_length=10, double_q=false, dueling=false, rng=rng, verbose=false)
+
+@btime policy = solve($solver, $mdp)
 
 using Profile
 using ProfileView
@@ -67,7 +75,7 @@ tl = 100
 
 s_batch = [rand(2, bs) for i=1:solver.trace_length]
 a_batch = [rand(1:na, bs) for i=1:solver.trace_length]
-q_values = model.(s_batch) # vector of size trace_length n_actions x batch_size
+q_values = model.(s_batch) # vector of size trace_length nactions x batch_size
 q_sa = [diag(view(q_values[i], a_batch[i], :)) for i=1:solver.trace_length]
 
 

@@ -22,7 +22,7 @@ end
 
 @testset "vanilla DQN" begin
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005,
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
@@ -35,7 +35,7 @@ end
 
 @testset "double Q DQN" begin
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork=model,max_steps=10000, learning_rate=0.005, eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
                                  double_q = true, dueling=false, prioritized_replay=false)
@@ -47,7 +47,7 @@ end
 
 @testset "dueling DQN" begin
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005,
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
@@ -60,7 +60,7 @@ end
 
 @testset "Prioritized DDQN" begin
     mdp = TestMDP((5,5), 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(100, 8, tanh), Dense(8, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005,
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
@@ -75,7 +75,7 @@ end
 
 @testset "TestMDP DRQN" begin
     mdp = TestMDP((5,5), 1, 6)
-    model = Chain(x->flattenbatch(x), LSTM(25, 8), Dense(8, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), LSTM(25, 8), Dense(8, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005,
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 500,
@@ -87,7 +87,7 @@ end
 
 @testset "GridWorld DDRQN" begin
     mdp = SimpleGridWorld();
-    model = Chain(x->flattenbatch(x), LSTM(2, 32), Dense(32, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), LSTM(2, 32), Dense(32, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=false, max_steps=10000, learning_rate=0.001,log_freq=500,
                              recurrence=true,trace_length=10, double_q=true, dueling=true)
 
@@ -100,7 +100,7 @@ end
 @testset "TigerPOMDP DDRQN" begin
     pomdp = TigerPOMDP(0.01, -1.0, 0.1, 0.8, 0.95);
     input_dims = reduce(*, size(convert_o(Vector{Float64}, first(observations(pomdp)), pomdp)))
-    model = Chain(x->flattenbatch(x), LSTM(input_dims, 4), Dense(4, n_actions(pomdp)))
+    model = Chain(x->flattenbatch(x), LSTM(input_dims, 4), Dense(4, length(actions(pomdp))))
     solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=false, max_steps=10000, learning_rate=0.0001,
                              log_freq=500, target_update_freq = 1000,
                              recurrence=true,trace_length=10, double_q=true, dueling=true, max_episode_length=100)
