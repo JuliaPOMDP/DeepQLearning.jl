@@ -19,7 +19,7 @@ end
 function bench_prioritized_ddqn(obsdim)
     rng = MersenneTwister(1)
     mdp = TestMDP(obsdim, 4, 6)
-    model = Chain(x->flattenbatch(x), Dense(reduce(*, obsdim)*4, 32), Dense(32, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), Dense(reduce(*, obsdim)*4, 32), Dense(32, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005, 
                                  eval_freq=2000,num_ep_eval=100,
                                  log_freq = 15000, verbose=false,
@@ -33,7 +33,7 @@ end
 function bench_drqn(obsdim)
     rng = MersenneTwister(1)
     mdp = TestMDP(obsdim, 1, 6)
-    model = Chain(x->flattenbatch(x), LSTM(reduce(*, obsdim), 32), Dense(32, n_actions(mdp)))
+    model = Chain(x->flattenbatch(x), LSTM(reduce(*, obsdim), 32), Dense(32, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005, 
                                  eval_freq=2000,num_ep_eval=100,trace_length=10,
                                  log_freq = 15000, verbose=false,

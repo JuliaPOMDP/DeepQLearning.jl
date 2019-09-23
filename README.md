@@ -43,7 +43,7 @@ mdp = SimpleGridWorld();
 
 # Define the Q network (see Flux.jl documentation)
 # the gridworld state is represented by a 2 dimensional vector.
-model = Chain(Dense(2, 32), Dense(32, n_actions(mdp)))
+model = Chain(Dense(2, 32), Dense(32, length(actions(mdp))))
 
 solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, 
                              learning_rate=0.005,log_freq=500,
@@ -101,7 +101,7 @@ using POMDPModels
 mdp = SimpleGridWorld();
 
 # the model weights will be send to the gpu in the call to solve
-model = Chain(Dense(2, 32), Dense(32, n_actions(mdp)))
+model = Chain(Dense(2, 32), Dense(32, length(actions(mdp))))
 
 solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, 
                              learning_rate=0.005,log_freq=500,

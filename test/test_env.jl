@@ -84,7 +84,3 @@ end
 function POMDPs.isterminal(mdp::TestMDP, s)
     return s[2] >= mdp.max_time
 end
-
-function POMDPs.n_actions(mdp::TestMDP)
-    return 4
-end

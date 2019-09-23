@@ -17,7 +17,7 @@ mdp = SimpleGridWorld()
 env = MDPEnvironment(mdp)
 input_dims = obs_dimensions(env)
 flattened_input_dims = reduce(*, input_dims)
-output_dims = n_actions(env)
+output_dims = length(actions(env))
 model = Chain(x->flattenbatch(x), Dense(flattened_input_dims, 8), Dense(8, output_dims))
 # model = Chain(x->flattenbatch(x), LSTM(flattened_input_dims, 32), Dense(32, output_dims))
 solver = DeepQLearningSolver(qnetwork = model, prioritized_replay=true, max_steps=3000, learning_rate=0.005,log_freq=500,
@@ -43,7 +43,7 @@ env = MDPEnvironment(mdp)
 ### MODEL BUILDING 
 input_dims = obs_dimensions(env)
 flattened_input_dims = reduce(*, input_dims)
-output_dims = n_actions(env)
+output_dims = length(actions(env))
 model = Chain(x->flattenbatch(x), LSTM(flattened_input_dims, 32), Dense(32, output_dims))
 
 active_q = model
@@ -64,7 +64,7 @@ sp_batch = batch_trajectories(sp_batch, solver.trace_length, solver.batch_size)
 done_batch = batch_trajectories(done_batch, solver.trace_length, solver.batch_size)
 trace_mask_batch = batch_trajectories(trace_mask_batch, solver.trace_length, solver.batch_size)
 
-q_values = active_q.(s_batch) # vector of size trace_length n_actions x batch_size
+q_values = active_q.(s_batch) # vector of size trace_length nactions x batch_size
 q_sa = [zeros(eltype(q_values[1]), solver.batch_size) for i=1:solver.trace_length]
 for i=1:solver.trace_length  # there might be a more elegant way of doing this
     for j=1:solver.batch_size
@@ -101,10 +101,10 @@ model(o[:])
 model(flatten(s_batch))
 
 
-q_values = active_q(flatten_batch(s_batch)) # n_actions x batch_size
+q_values = active_q(flatten_batch(s_batch)) # nactions x batch_size
 q_sa = [q_values[a_batch[i], i] for i=1:batch_size]
 q_sp_max = @view maximum(target_q(flatten_batch(sp_batch)), dims=1)[:]
-q_targets = r_batch .+ (1.0 .- done_batch).*discount(env.problem).*q_sp_max # n_actions x batch_size
+q_targets = r_batch .+ (1.0 .- done_batch).*discount(env.problem).*q_sp_max # nactions x batch_size
 
 function loss(q_sa, q_targets)
     mean(huber_loss.(q_sa - q_targets))
