@@ -194,7 +194,6 @@ function batch_train!(solver::DeepQLearningSolver,
 end
 
 function q_learning_loss(solver::DeepQLearningSolver, env::AbstractEnvironment, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
-    gpu.([active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights])
     q_values = active_q(s_batch)
     q_sa = diag(view(q_values, a_batch, :))
     if solver.double_q

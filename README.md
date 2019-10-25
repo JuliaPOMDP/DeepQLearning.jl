@@ -89,6 +89,7 @@ Logging is done through [TensorBoardLogger.jl](https://github.com/PhilipVinc/Ten
 ## GPU Support
 
 `DeepQLearning.jl` should support running the calculations on GPUs through the package [CuArrays.jl](https://github.com/JuliaGPU/CuArrays.jl).
+You must checkout the branch `gpu-support`. Note that it has not been tested thoroughly.
 To run the solver on GPU you must first load `CuArrays` and then proceed as usual.
 
 ```julia
