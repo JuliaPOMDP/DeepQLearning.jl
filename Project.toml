@@ -18,9 +18,9 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 
 [compat]
-Flux = "≥ 0.8.3"
+Flux = "0.8.3"
 POMDPs = "0.7.3, 0.8"
-RLInterface = "≥ 0.3.2"
+RLInterface = "0.3.2"
 
 [extras]
 POMDPModels = "355abbd5-f08e-5560-ac9e-8b5f2592a0ca"
