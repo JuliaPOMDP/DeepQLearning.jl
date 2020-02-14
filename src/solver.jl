@@ -133,15 +133,15 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
             Flux.loadparams!(target_q, weights)
         end
 
-        if t > solver.train_start && t%solver.eval_freq == 0
+        if t % solver.eval_freq == 0
             eval_next = true
         end
-        if t > solver.train_start && t%solver.save_freq == 0
+        if t % solver.save_freq == 0
             save_next = true
         end
 
-        if t%solver.log_freq == 0
-            #TODO log the training perf somewhere (?dataframes/csv?)
+        if t % solver.log_freq == 0
+
             if  solver.verbose
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | EvalR %1.3f \n",
                         t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, scores_eval)
