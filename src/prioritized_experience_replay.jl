@@ -74,7 +74,7 @@ end
 
 function update_priorities!(r::PrioritizedReplayBuffer, indices::Vector{Int64}, td_errors::V) where V <: AbstractArray
     new_priorities = (abs.(td_errors) .+ r.ϵ).^r.α
-    @assert all(new_priorities .> 0.)
+    @assert all(new_priorities .> 0f0)
     r._priorities[indices] = new_priorities
 end
 
@@ -87,19 +87,23 @@ end
 
 function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
     @assert length(sample_indices) == size(r._s_batch)[end]
-    
+    s_batch_size = size(r._s_batch)
+    r._s_batch = reshape(r._s_batch, (:, r.batch_size))
+    r._sp_batch = reshape(r._sp_batch, (:, r.batch_size))
     for (i, idx) in enumerate(sample_indices)
         @inbounds begin
-        r._s_batch[Base.setindex(axes(r._s_batch), i, ndims(r._s_batch))...] = r._experience[idx].s
-        r._a_batch[i] = CartesianIndex(r._experience[idx].a, i)
-        r._r_batch[i] = r._experience[idx].r
-        r._sp_batch[Base.setindex(axes(r._sp_batch), i, ndims(r._sp_batch))...] = r._experience[idx].sp
-        r._done_batch[i] = r._experience[idx].done
-        r._weights_batch[i] = r._priorities[idx]
+            r._s_batch[:, i] = vec(r._experience[idx].s)
+            r._a_batch[i] = CartesianIndex(r._experience[idx].a, i)
+            r._r_batch[i] = r._experience[idx].r
+            r._sp_batch[:, i] = vec(r._experience[idx].sp)
+            r._done_batch[i] = r._experience[idx].done
+            r._weights_batch[i] = r._priorities[idx]
         end
     end
-    pi = r._weights_batch ./ sum(r._priorities[1:r._curr_size])
-    weights = (r._curr_size * pi).^(-r.β)
+    r._s_batch = reshape(r._s_batch, s_batch_size)
+    r._sp_batch = reshape(r._sp_batch, s_batch_size)
+    p = r._weights_batch ./ sum(r._priorities[1:r._curr_size])
+    weights = (r._curr_size * p).^(-r.β)
     return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch, sample_indices, weights
 end
 

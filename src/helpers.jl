@@ -8,15 +8,14 @@ function flattenbatch(x::AbstractArray)
 end
 
 """
-    huber_loss(x, δ::Float64=1.0)
-Compute the Huber Loss
+    huber_loss(x::Float32)
+Compute the Huber Loss (from ReinforcementLearning.jl)
 """
-function huber_loss(x, δ::Float32=1f0)
-    if abs(x) < δ
-        return 5f-1*x^2
-    else
-        return δ*(abs(x) - 5f-1*δ)
-    end
+function huber_loss(x::Float32)
+    abserror = abs.(x)
+    quadratic = min.(abserror, 1.0f0)
+    linear = abserror .- quadratic 
+    return 0.5f0 .*quadratic .* quadratic .+ linear
 end
 
 """

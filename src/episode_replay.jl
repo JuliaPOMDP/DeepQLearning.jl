@@ -72,6 +72,11 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
     @assert r.max_size >= r.batch_size # could be checked during construction
     sample_indices = sample(r.rng, 1:r._curr_size, r.batch_size, replace=false)
     @assert length(sample_indices) == size(r._s_batch[1])[end]
+    s_batch_size = size(first(r._s_batch))
+    for t=1:r.trace_length
+        r._s_batch[t] = reshape(r._s_batch[t], (:, r.batch_size))
+        r._sp_batch[t] = reshape(r._sp_batch[t], (:, r.batch_size))
+    end
     for (i, idx) in enumerate(sample_indices)
         ep = r._experience[idx]
         # randomized start TODO add as an option of the buffer
@@ -79,14 +84,18 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
         t = 1
         for j=ep_start:min(length(ep), r.trace_length)
             expe = ep[t]
-            r._s_batch[t][axes(r._s_batch[t])[1:end-1]..., i] = expe.s
+            r._s_batch[t][:, i] = vec(expe.s)
             r._a_batch[t][i] = CartesianIndex(expe.a, i)
             r._r_batch[t][i] = expe.r
-            r._sp_batch[t][axes(r._s_batch[t])[1:end-1]..., i] = expe.sp
+            r._sp_batch[t][:, i] = vec(expe.sp)
             r._done_batch[t][i] = expe.done
             r._trace_mask[t][i] = 1
             t += 1
         end
+    end
+    for t=1:r.trace_length
+        r._s_batch[t] = reshape(r._s_batch[t], s_batch_size)
+        r._sp_batch[t] = reshape(r._sp_batch[t], s_batch_size)
     end
     return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch, r._trace_mask
 end

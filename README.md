@@ -84,7 +84,7 @@ See [Flux.jl documentation](http://fluxml.ai/Flux.jl/stable/saving.html) for sav
 
 ## Logging
 
-Logging is done through [TensorBoardLogger.jl](https://github.com/PhilipVinc/TensorBoardLogger.jl). A log directory can be specified in the solver options. 
+Logging is done through [TensorBoardLogger.jl](https://github.com/PhilipVinc/TensorBoardLogger.jl). A log directory can be specified in the solver options, to disable logging you can set the `logdir` option to `nothing`.
 
 ## GPU Support
 
