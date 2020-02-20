@@ -33,11 +33,17 @@ function isrecurrent(m)
 end
 
 """
-    globalnorm(gs::Flux.Tracker.Grads)
+    globalnorm(p::Params, gs::Flux.Zygote.Grads)
 returns the maximum absolute values in the gradients of W 
 """
-function globalnorm(gs::Flux.Tracker.Grads)
-    return maximum(maximum(abs.(Flux.data(g))) for (i,g) in gs)
+function globalnorm(ps::Flux.Params, gs::Flux.Zygote.Grads)
+    gnorm = 0f0
+    for p in ps 
+        gs[p] === nothing && continue 
+        curr_norm = maximum(abs.(gs[p]))
+        gnorm =  curr_norm > gnorm  ? curr_norm : gnorm
+    end 
+    return gnorm
 end
 
 """

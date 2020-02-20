@@ -62,7 +62,7 @@ function was_in_second(s::Tuple{Vector{T}, T}) where T<:Integer
     s[1][end] == 2
 end
 
-function POMDPs.generate_s(mdp::TestMDP, s::Tuple{Vector{T}, T}, a::N, rng::AbstractRNG) where {T <: Integer, N <: Integer}
+function POMDPs.gen(::DDNNode{:sp}, mdp::TestMDP, s::Tuple{Vector{T}, T}, a::N, rng::AbstractRNG) where {T <: Integer, N <: Integer}
     t_new = s[2] + convert(Int32, 1) # increment time
     s_new = circshift(s[1], -1)
     if a < 4

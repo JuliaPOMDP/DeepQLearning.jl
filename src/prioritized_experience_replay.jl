@@ -16,7 +16,7 @@ function Base.convert(::Type{DQExperience{Int32, Float32, C}}, x::DQExperience{A
                  x.done)
 end
 
-mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat, Q}
+mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat,CI, Q}
     max_size::Int64
     batch_size::Int64
     rng::AbstractRNG
@@ -29,10 +29,10 @@ mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat, Q}
     _experience::Vector{DQExperience{N,T,Q}}
 
     _s_batch::Array{T}
-    _a_batch::Vector{N}
+    _a_batch::Vector{CI}
     _r_batch::Vector{T}
     _sp_batch::Array{T}
-    _done_batch::Vector{Bool}
+    _done_batch::Vector{T}
     _weights_batch::Vector{T}
 end
 
@@ -47,10 +47,10 @@ function PrioritizedReplayBuffer(env::AbstractEnvironment,
     experience = Vector{DQExperience{Int32, Float32, length(s_dim)}}(undef, max_size)
     priorities = Vector{Float32}(undef, max_size)
     _s_batch = zeros(Float32, s_dim..., batch_size)
-    _a_batch = zeros(Int32, batch_size)
+    _a_batch = [CartesianIndex(0,0) for i=1:batch_size]
     _r_batch = zeros(Float32, batch_size)
     _sp_batch = zeros(Float32, s_dim..., batch_size)
-    _done_batch = zeros(Bool, batch_size)
+    _done_batch = zeros(Float32, batch_size)
     _weights_batch = zeros(Float32, batch_size)
     return PrioritizedReplayBuffer(max_size, batch_size, rng, α, β, ϵ, 0, 1, priorities, experience,
                 _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _weights_batch)
@@ -91,7 +91,7 @@ function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
     for (i, idx) in enumerate(sample_indices)
         @inbounds begin
         r._s_batch[Base.setindex(axes(r._s_batch), i, ndims(r._s_batch))...] = r._experience[idx].s
-        r._a_batch[i] = r._experience[idx].a
+        r._a_batch[i] = CartesianIndex(r._experience[idx].a, i)
         r._r_batch[i] = r._experience[idx].r
         r._sp_batch[Base.setindex(axes(r._sp_batch), i, ndims(r._sp_batch))...] = r._experience[idx].sp
         r._done_batch[i] = r._experience[idx].done

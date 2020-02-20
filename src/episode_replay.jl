@@ -1,6 +1,6 @@
 # Replay buffer that store full episodes
 
-mutable struct EpisodeReplayBuffer{N<:Integer, T<:AbstractFloat, Q}
+mutable struct EpisodeReplayBuffer{N<:Integer, T<:AbstractFloat, CI, Q}
     max_size::Int64
     batch_size::Int64
     trace_length::Int64
@@ -10,10 +10,10 @@ mutable struct EpisodeReplayBuffer{N<:Integer, T<:AbstractFloat, Q}
     _experience::Vector{Vector{DQExperience{N,T,Q}}}
 
     _s_batch::Vector{Array{T}}
-    _a_batch::Vector{Array{N}}
+    _a_batch::Vector{Vector{CI}}
     _r_batch::Vector{Array{T}}
     _sp_batch::Vector{Array{T}}
-    _done_batch::Vector{Array{Bool}}
+    _done_batch::Vector{Array{T}}
     _trace_mask::Vector{Array{N}}
     _episode::Vector{DQExperience{N,T,Q}}
 end
@@ -27,13 +27,13 @@ function EpisodeReplayBuffer(env::AbstractEnvironment,
     Q = length(s_dim)
     experience = Vector{Vector{DQExperience{Int32, Float32, Q}}}(undef, max_size)
     _s_batch = [zeros(Float32, s_dim..., batch_size) for i=1:trace_length]
-    _a_batch = [zeros(Int32, batch_size) for i=1:trace_length]
+    _a_batch = [[CartesianIndex(1,1) for i=1:batch_size] for i=1:trace_length]
     _r_batch = [zeros(Float32, batch_size) for i=1:trace_length]
     _sp_batch = [zeros(Float32, s_dim..., batch_size) for i=1:trace_length]
-    _done_batch = [zeros(Bool, batch_size) for i=1:trace_length]
+    _done_batch = [zeros(Float32, batch_size) for i=1:trace_length]
     _trace_mask = [zeros(Int32, batch_size) for i=1:trace_length]
     _episode = Vector{DQExperience{Int32, Float32, Q}}()
-    return EpisodeReplayBuffer{Int32, Float32, Q}(max_size, batch_size, trace_length, rng, 0, 1, experience,
+    return EpisodeReplayBuffer{Int32, Float32, CartesianIndex{2}, Q}(max_size, batch_size, trace_length, rng, 0, 1, experience,
                 _s_batch, _a_batch, _r_batch, _sp_batch, _done_batch, _trace_mask, _episode)
 end
 
@@ -49,7 +49,7 @@ function add_exp!(r::EpisodeReplayBuffer{N, T}, exp::DQExperience) where {N, T}
     end
 end
 
-function add_episode!(r::EpisodeReplayBuffer{N ,T, Q}, ep::Vector{DQExperience{Int32, Float32, Q}}) where {N,T,Q}
+function add_episode!(r::EpisodeReplayBuffer{N ,T, CI, Q}, ep::Vector{DQExperience{Int32, Float32, Q}}) where {N,T,CI,Q}
     r._experience[r._idx] = ep
     r._idx = mod1((r._idx + 1),r.max_size)
     if r._curr_size < r.max_size
@@ -59,7 +59,7 @@ end
 
 function reset_batches!(r::EpisodeReplayBuffer)
     fill!.(r._s_batch, 0.)
-    fill!.(r._a_batch, 1)
+    fill!.(r._a_batch, Ref(CartesianIndex(1,1)))
     fill!.(r._r_batch, 0.)
     fill!.(r._sp_batch, 0.)
     fill!.(r._done_batch, false)
@@ -80,7 +80,7 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
         for j=ep_start:min(length(ep), r.trace_length)
             expe = ep[t]
             r._s_batch[t][axes(r._s_batch[t])[1:end-1]..., i] = expe.s
-            r._a_batch[t][i] = expe.a
+            r._a_batch[t][i] = CartesianIndex(expe.a, i)
             r._r_batch[t][i] = expe.r
             r._sp_batch[t][axes(r._s_batch[t])[1:end-1]..., i] = expe.sp
             r._done_batch[t][i] = expe.done

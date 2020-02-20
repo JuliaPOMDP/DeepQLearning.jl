@@ -10,22 +10,7 @@ function (m::DuelingNetwork)(inpt)
     return m.val(x) .+ m.adv(x) .- mean(m.adv(x), dims=1)
 end
 
-function Flux.params(m::DuelingNetwork)
-    ps = Flux.Params()
-    Flux.prefor(p ->
-    Tracker.istracked(p) && Tracker.isleaf(p) &&
-        !any(p′ -> p′ === p, ps) && push!(ps, p),
-    m.base)
-    Flux.prefor(p ->
-    Tracker.istracked(p) && Tracker.isleaf(p) &&
-        !any(p′ -> p′ === p, ps) && push!(ps, p),
-    m.adv)
-    Flux.prefor(p ->
-    Tracker.istracked(p) && Tracker.isleaf(p) &&
-        !any(p′ -> p′ === p, ps) && push!(ps, p),
-    m.val)
-    return ps
-end
+Flux.@functor DuelingNetwork
 
 function Flux.reset!(m::DuelingNetwork)
     Flux.reset!(m.base)
