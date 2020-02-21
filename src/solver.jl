@@ -23,7 +23,7 @@
     max_episode_length::Int64 = 100
     train_start::Int64 = 200
     rng::AbstractRNG = MersenneTwister(0)
-    logdir::String = "log/"
+    logdir::Union{Nothing, String} = "log/"
     save_freq::Int64 = 3000
     log_freq::Int64 = 100
     verbose::Bool = true
@@ -55,8 +55,10 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
 end
 
 function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, policy::AbstractNNPolicy, replay)
-    logger = TBLogger(solver.logdir)
-    solver.logdir = logger.logdir
+    if solver.logdir !== nothing 
+        logger = TBLogger(solver.logdir)
+        solver.logdir = logger.logdir
+    end
     active_q = getnetwork(policy) # shallow copy
     target_q = deepcopy(active_q)
     optimizer = ADAM(solver.learning_rate)
@@ -103,11 +105,13 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                     model_saved, saved_mean_reward = save_model(solver, active_q, scores_eval, saved_mean_reward, model_saved)
                     save_next = false
                 end
-
-                log_value(logger, "eval_reward", scores_eval, step = t)
-                log_value(logger, "eval_steps", steps_eval, step = t)
-                for (k, v) in info_eval
-                    log_value(logger, k, v, step = t)
+                
+                if solver.logdir !== nothing 
+                    log_value(logger, "eval_reward", scores_eval, step = t)
+                    log_value(logger, "eval_steps", steps_eval, step = t)
+                    for (k, v) in info_eval
+                        log_value(logger, k, v, step = t)
+                    end
                 end
             end
 
@@ -124,7 +128,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         avg100_steps = mean(episode_steps[max(1, length(episode_steps)-101):end])
         if t%solver.train_freq == 0
             hs = hiddenstates(active_q)
-            loss_val, td_errors, grad_val = batch_train!(solver, env, policy, optimizer, target_q, replay)
+            loss_val, grad_val = batch_train!(solver, env, policy, optimizer, target_q, replay)
             sethiddenstates!(active_q, hs)
         end
 
@@ -140,7 +144,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
             save_next = true
         end
 
-        if t % solver.log_freq == 0
+        if t % solver.log_freq == 0 && solver.logdir !== nothing
 
             if  solver.verbose
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | EvalR %1.3f \n",
@@ -179,51 +183,44 @@ function batch_train!(solver::DeepQLearningSolver,
                       policy::AbstractNNPolicy,
                       optimizer,
                       target_q,
-                      s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
-    active_q = getnetwork(policy) 
-    loss_tracked, td_tracked = q_learning_loss(solver, env, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
-    loss_val = loss_tracked.data
-    td_vals = Flux.data(td_tracked)
-    p = params(active_q)
-    gs = Flux.gradient(p) do 
-        loss_tracked
-    end
-    grad_norm = globalnorm(gs)
-    Flux.Optimise.update!(optimizer, p, gs)
-    return loss_val, td_vals, grad_norm
-end
-
-function q_learning_loss(solver::DeepQLearningSolver, env::AbstractEnvironment, active_q, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, importance_weights)
-    q_values = active_q(s_batch)
-    q_sa = diag(view(q_values, a_batch, :))
-    if solver.double_q
-        target_q_values = target_q(sp_batch)
-        qp_values = active_q(sp_batch)
-        best_a = Flux.onecold(qp_values)
-        q_sp_max = diag(view(target_q_values, best_a, :))
-    else
-        q_sp_max = @view maximum(target_q(sp_batch), dims=1)[:]
-    end
-    γ = Float32(discount(env.problem))
-    done_batch = convert.(Float32, done_batch)
-    q_targets = r_batch .+ (1f0 .- done_batch) .* γ .* q_sp_max
-    td_tracked = q_sa .- q_targets
-    loss_tracked = mean(huber_loss, importance_weights.*td_tracked)
-    return loss_tracked, td_tracked
-end
-
-function batch_train!(solver::DeepQLearningSolver,
-                      env::AbstractEnvironment,
-                      policy::AbstractNNPolicy,
-                      optimizer,
-                      target_q,
                       replay::PrioritizedReplayBuffer)
-    s_batch, a_batch, r_batch, sp_batch, done_batch, indices, weights = sample(replay)
-    loss_val, td_vals, grad_norm = batch_train!(solver, env, policy, optimizer, target_q, s_batch, a_batch, r_batch, sp_batch, done_batch, weights)
+
+    s_batch, a_batch, r_batch, sp_batch, done_batch, indices, importance_weights = sample(replay)
+   
+    active_q = getnetwork(policy) 
+    p = params(active_q)
+
+    loss_val = nothing
+    td_vals = nothing
+
+    γ = discount(env.problem)
+    if solver.double_q
+        qp_values = active_q(sp_batch)
+        target_q_values = target_q(sp_batch)
+        best_a = [CartesianIndex(argmax(qp_values[:, i]), i) for i=1:solver.batch_size]
+        q_sp_max = target_q_values[best_a]
+    else
+        q_sp_max = dropdims(maximum(target_q(sp_batch), dims=1), dims=1)
+    end
+    q_targets = r_batch .+ (1f0 .- done_batch) .* γ .* q_sp_max
+
+    gs = Flux.gradient(p) do 
+        q_values = active_q(s_batch)
+        q_sa = q_values[a_batch]
+        td_vals = q_sa .- q_targets
+        loss_val = sum(huber_loss, importance_weights.*td_vals)
+        loss_val /= solver.batch_size
+    end
+    
+    grad_norm = globalnorm(p, gs)
+    Flux.Optimise.update!(optimizer, p, gs)
+
+    
     if solver.prioritized_replay
         update_priorities!(replay, indices, td_vals)
     end
-    return loss_val, td_vals, grad_norm
+
+    return loss_val, grad_norm
 end
 
 # for RNNs
@@ -237,30 +234,48 @@ function batch_train!(solver::DeepQLearningSolver,
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
     Flux.reset!(active_q)
     Flux.reset!(target_q)
-    loss_tracked = zero(Flux.Tracker.TrackedReal{Float32})
-    td_tracked = Vector{Vector{Flux.Tracker.TrackedReal{Float32}}}(undef, solver.trace_length)
-    for i=1:solver.trace_length
-        loss_tracked_tmp, td_tracked_tmp = q_learning_loss(solver, env, active_q, target_q, s_batch[i], a_batch[i], r_batch[i], sp_batch[i], done_batch[i], trace_mask_batch[i])
-        loss_tracked += loss_tracked_tmp
-        td_tracked[i] = td_tracked_tmp
-    end
-    loss_tracked /= solver.trace_length
-    loss_val = Flux.data(loss_tracked)
-    td_vals = Flux.data(td_tracked)
+
     p = params(active_q)
-    gs = Flux.gradient(p) do 
-        loss_tracked
+
+    loss_val = nothing
+    td_vals = nothing
+
+    γ = discount(env.problem)
+    q_targets = [zeros(Float32, solver.batch_size) for i=1:solver.trace_length]
+    for i=1:solver.trace_length
+        if solver.double_q
+            qp_values = active_q(sp_batch[i])
+            best_a = [CartesianIndex(argmax(qp_values[:, i]), i) for i=1:solver.batch_size]
+            target_q_values = target_q(sp_batch[i])
+            q_sp_max = target_q_values[best_a]
+        else
+            q_sp_max = dropdims(maximum(target_q(sp_batch[i]), dims=1), dims=1)
+        end
+        q_targets[i] .= r_batch[i] .+ (1f0 .- done_batch[i]) .* γ .* q_sp_max
     end
-    grad_norm = globalnorm(gs)
+
+    Flux.reset!(active_q)
+
+    gs = Flux.gradient(p) do 
+        loss_val = 0f0
+        for i=1:solver.trace_length
+            q_values = active_q(s_batch[i])
+            q_sa = q_values[a_batch[i]]
+            td_vals = q_sa .- q_targets[i]
+            loss_val += sum(huber_loss, trace_mask_batch[i].*td_vals)/solver.batch_size
+        end
+        loss_val /= solver.trace_length
+    end
+
+    grad_norm = globalnorm(p, gs)
     Flux.Optimise.update!(optimizer, p, gs)
-    return loss_val, td_vals, grad_norm
+    return loss_val, grad_norm
 end
 
 
 function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool)
     if scores_eval >= saved_mean_reward
-        weights = Tracker.data.(params(active_q))
-        bson(joinpath(solver.logdir, "qnetwork.bson"), qnetwork=weights)
+        bson(joinpath(solver.logdir, "qnetwork.bson"), qnetwork=[w for w in params(active_q)])
         if solver.verbose
             @printf("Saving new model with eval reward %1.3f \n", scores_eval)
         end

@@ -77,9 +77,9 @@ end
     mdp = TestMDP((5,5), 1, 6)
     model = Chain(x->flattenbatch(x), LSTM(25, 8), Dense(8, length(actions(mdp))))
     solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, learning_rate=0.005,
-                                 eval_freq=2000,num_ep_eval=100,
+                                 eval_freq=2000,num_ep_eval=100, 
                                  log_freq = 500,
-                                 double_q = false, dueling=false, recurrence=true)
+                                 double_q = true, dueling=false, recurrence=true)
     policy = solve(solver, mdp)
     r_drqn =  evaluate(mdp, policy, GLOBAL_RNG)
     @test r_drqn >= 0.
