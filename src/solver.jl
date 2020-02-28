@@ -193,7 +193,7 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = nothing
     td_vals = nothing
 
-    γ = discount(env.problem)
+    γ = convert(Float32, discount(env.problem))
     if solver.double_q
         qp_values = active_q(sp_batch)
         target_q_values = target_q(sp_batch)
@@ -240,7 +240,7 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = nothing
     td_vals = nothing
 
-    γ = discount(env.problem)
+    γ = convert(Float32, discount(env.problem))
     q_targets = [zeros(Float32, solver.batch_size) for i=1:solver.trace_length]
     for i=1:solver.trace_length
         if solver.double_q
