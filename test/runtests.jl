@@ -1,6 +1,7 @@
 using DeepQLearning
 using POMDPModels
 using POMDPSimulators
+using POMDPPolicies
 using Flux
 using Random
 using RLInterface
@@ -31,6 +32,7 @@ end
     policy = solve(solver, mdp)
     r_basic = evaluate(mdp, policy, GLOBAL_RNG)
     @test r_basic >= 1.5
+    @test size(actionvalues(policy, initialstate(mdp, GLOBAL_RNG))) == (length(actions(mdp)),)
 end
 
 @testset "double Q DQN" begin
@@ -106,4 +108,5 @@ end
                              recurrence=true,trace_length=10, double_q=true, dueling=true, max_episode_length=100)
 
     policy = solve(solver, pomdp)
+    @test size(actionvalues(policy, true)) == (length(actions(pomdp)),)
 end
