@@ -29,6 +29,8 @@ function resetstate!(policy::NNPolicy)
     Flux.reset!(policy.qnetwork)
 end
 
+actionmap(p::NNPolicy) = p.action_map
+
 function _action(policy::NNPolicy{P,Q,A}, o::AbstractArray{T, N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
