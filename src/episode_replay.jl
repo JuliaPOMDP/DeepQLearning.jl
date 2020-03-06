@@ -101,17 +101,18 @@ function StatsBase.sample(r::EpisodeReplayBuffer)
 end
 
 function populate_replay_buffer!(r::EpisodeReplayBuffer,
-                                 env::AbstractEnvironment;
+                                 env::AbstractEnvironment,
+                                 action_indices;
                                  max_pop::Int64 = r.max_size,
                                  max_steps::Int64 = 100)
     for t=1:(max_pop - r._curr_size)
-        ep = generate_episode(env, max_steps=max_steps)
+        ep = generate_episode(env, action_indices, max_steps=max_steps)
         add_episode!(r, ep)
     end
     @assert r._curr_size >= r.batch_size
 end
 
-function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
+function generate_episode(env::AbstractEnvironment, action_indices; max_steps::Int64 = 100)
     s_dim = obs_dimensions(env)
     episode = DQExperience{Int32, Float32, length(s_dim)}[]
     sizehint!(episode, max_steps)
@@ -121,7 +122,7 @@ function generate_episode(env::AbstractEnvironment; max_steps::Int64 = 100)
     step = 1
     while !done && step < max_steps
         action = sample_action(env)
-        ai = actionindex(env.problem, action)
+        ai = action_indices[action]
         op, rew, done, info = step!(env, action)
         exp = DQExperience(o, ai, Float32(rew), op, done)
         push!(episode, exp)

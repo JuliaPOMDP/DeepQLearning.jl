@@ -40,17 +40,21 @@ function POMDPs.solve(solver::DeepQLearningSolver, problem::POMDP)
 end
 
 function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
+    action_map = collect(actions(env))
+    action_indices = Dict(a=>i for (i, a) in enumerate(action_map))
+
     # check reccurence
     if isrecurrent(solver.qnetwork) && !solver.recurrence
         throw("DeepQLearningError: you passed in a recurrent model but recurrence is set to false")
     end
-    replay = initialize_replay_buffer(solver, env)
+    replay = initialize_replay_buffer(solver, env, action_indices)
     if solver.dueling
         active_q = create_dueling_network(solver.qnetwork)
     else
         active_q = solver.qnetwork
     end
-    policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
+    policy = NNPolicy(env.problem, active_q, action_map, length(obs_dimensions(env)))
+
     return dqn_train!(solver, env, policy, replay)
 end
 
@@ -75,9 +79,10 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     model_saved = false
     eval_next = false
     save_next = false
+    action_indices = Dict(a=>i for (i, a) in enumerate(actionmap(policy)))
     for t=1:solver.max_steps
         act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
-        ai = actionindex(env.problem, act)
+        ai = action_indices[act]
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, Float32(rew), op, done)
         if solver.recurrence
@@ -167,14 +172,14 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     return policy
 end
 
-function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnvironment)
+function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnvironment, action_indices)
     # init and populate replay buffer
     if solver.recurrence
         replay = EpisodeReplayBuffer(env, solver.buffer_size, solver.batch_size, solver.trace_length)
     else
         replay = PrioritizedReplayBuffer(env, solver.buffer_size, solver.batch_size)
     end
-    populate_replay_buffer!(replay, env, max_pop=solver.train_start)
+    populate_replay_buffer!(replay, env, action_indices, max_pop=solver.train_start)
     return replay #XXX type unstable
 end
 
@@ -301,7 +306,7 @@ function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnvironmen
     else
         active_q = solver.qnetwork
     end
-    policy = NNPolicy(env.problem, active_q, ordered_actions(env.problem), length(obs_dimensions(env)))
+    policy = NNPolicy(env.problem, active_q, collect(actions(env)), length(obs_dimensions(env)))
     weights = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
     Flux.loadparams!(getnetwork(policy), weights)
     Flux.testmode!(getnetwork(policy))
@@ -312,12 +317,10 @@ end
     P = typeof(mdp)
     S = statetype(P)
     A = actiontype(P)
-    @req actionindex(::P, ::A)
     @req discount(::P)
     @req actions(::P)
     as = actions(mdp)
     @req length(::typeof(as))
-    @subreq ordered_actions(mdp)
     if isa(mdp, POMDP)
         O = obstype(mdp)
         @req convert_o(::Type{AbstractArray}, ::O, ::P)
