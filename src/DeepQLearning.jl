@@ -12,6 +12,7 @@ using POMDPPolicies
 using RLInterface
 using LinearAlgebra
 using TensorBoardLogger: TBLogger, log_value
+using EllipsisNotation
 
 export DeepQLearningSolver,
        AbstractNNPolicy,

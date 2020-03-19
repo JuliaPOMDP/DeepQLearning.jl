@@ -5,6 +5,7 @@ using POMDPPolicies
 using Flux
 using Random
 using RLInterface
+using StaticArrays
 using Test
 Random.seed!(7)
 GLOBAL_RNG = MersenneTwister(1) # for test consistency
@@ -109,4 +110,31 @@ end
 
     policy = solve(solver, pomdp)
     @test size(actionvalues(policy, true)) == (length(actions(pomdp)),)
+end
+
+mutable struct StaticArrayMDP <: MDP{typeof(SVector(1)), Int64}
+    state::typeof(SVector(1))
+end
+POMDPs.discount(::StaticArrayMDP) = 0.95f0
+POMDPs.initialstate(m::StaticArrayMDP, rng::AbstractRNG) = m.state 
+
+function POMDPs.gen(m::StaticArrayMDP, s, a, rng::AbstractRNG)
+    return (sp=s + SVector(a), r=m.state[1]^2)
+end
+
+POMDPs.isterminal(::StaticArrayMDP, s) = s[1] >= 3
+POMDPs.actions(::StaticArrayMDP) = [0,1]
+
+
+@testset "Static Array Env" begin
+    mdp = StaticArrayMDP(SVector(1))
+
+    model = Chain(Dense(1, 32), Dense(32, length(actions(mdp))))
+
+    solver = DeepQLearningSolver(qnetwork = model, max_steps=10, 
+                                learning_rate=0.005,log_freq=500,
+                                recurrence=false,double_q=true, dueling=true, prioritized_replay=true)
+    policy = solve(solver, mdp)
+
+    @test evaluate(mdp, policy, GLOBAL_RNG) > 1.0
 end

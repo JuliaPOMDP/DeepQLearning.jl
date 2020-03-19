@@ -8,7 +8,7 @@ using Flux
 using DeepQLearning
 include("test/test_env.jl")
 
-# mdp = TestMDP((5,5), 4, 6)
+mdp = TestMDP((5,5), 4, 6)
 # mdp = SimpleGridWorld()
 rng = MersenneTwister(1)
 mdp = TestMDP((5,5), 1, 6)
@@ -20,7 +20,11 @@ solver = DeepQLearningSolver(batch_size = 128, eval_freq = 10_000, save_freq=10_
 
 @btime policy = solve($solver, $mdp)
 
+
 policy = solve(solver, mdp)
+
+env = MDPEnvironment(mdp)
+o = reset!(env)
 
 using RLInterface
 using LinearAlgebra

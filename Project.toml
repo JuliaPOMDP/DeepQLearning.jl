@@ -1,10 +1,11 @@
 name = "DeepQLearning"
 uuid = "de0a67f4-c691-11e8-0034-5fc6e16e22d3"
 repo = "https://github.com/JuliaPOMDP/DeepQLearning.jl"
-version = "0.4.5"
+version = "0.4.6"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
+EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 POMDPModelTools = "08074719-1b2a-587c-a292-00f91cc44415"
@@ -21,13 +22,14 @@ TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 Flux = "0.10"
 POMDPPolicies = "0.2.1"
 POMDPs = "0.7.3, 0.8"
-RLInterface = "0.3.2"
+RLInterface = "0.3.6"
 julia = "1"
 
 [extras]
 POMDPModels = "355abbd5-f08e-5560-ac9e-8b5f2592a0ca"
 POMDPSimulators = "e0d0a172-29c6-5d4e-96d0-f262df5d01fd"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["POMDPModels", "POMDPSimulators", "Test"]
+test = ["POMDPModels", "POMDPSimulators", "StaticArrays", "Test"]

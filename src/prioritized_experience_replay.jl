@@ -1,22 +1,22 @@
 # Naive implementation
 
-struct DQExperience{N <: Real,T <: Real, Q}
-    s::Array{T, Q}
+struct DQExperience{N <: Real,T <: Real, A<:AbstractArray{T}}
+    s::A
     a::N
     r::T
-    sp::Array{T, Q}
+    sp::A
     done::Bool
 end
 
 function Base.convert(::Type{DQExperience{Int32, Float32, C}}, x::DQExperience{A, B, C}) where {A, B, C}
-    return DQExperience{Int32, Float32, C}(convert(Array{Float32, C}, x.s),
-                 convert(Int32, x.a),
-                 convert(Float32, x.r),
-                 convert(Array{Float32, C}, x.sp),
-                 x.done)
+    return DQExperience{Int32, Float32, C}(convert(C, x.s),
+                                            convert(Int32, x.a),
+                                            convert(Float32, x.r),
+                                            convert(C, x.sp),
+                                            x.done)
 end
 
-mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat,CI, Q}
+mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat,CI,Q,A<:AbstractArray{T}}
     max_size::Int64
     batch_size::Int64
     rng::AbstractRNG
@@ -28,23 +28,23 @@ mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat,CI, Q}
     _priorities::Vector{T}
     _experience::Vector{DQExperience{N,T,Q}}
 
-    _s_batch::Array{T}
+    _s_batch::A
     _a_batch::Vector{CI}
     _r_batch::Vector{T}
-    _sp_batch::Array{T}
+    _sp_batch::A
     _done_batch::Vector{T}
     _weights_batch::Vector{T}
 end
 
-function PrioritizedReplayBuffer(env::AbstractEnvironment,
+function PrioritizedReplayBuffer(env::AbstractEnvironment{OV},
                                 max_size::Int64,
                                 batch_size::Int64;
                                 rng::AbstractRNG = MersenneTwister(0),
                                 α::Float32 = 6f-1,
                                 β::Float32 = 4f-1,
-                                ϵ::Float32 = 1f-3)
+                                ϵ::Float32 = 1f-3) where {OV}
     s_dim = obs_dimensions(env)
-    experience = Vector{DQExperience{Int32, Float32, length(s_dim)}}(undef, max_size)
+    experience = Vector{DQExperience{Int32, Float32, OV}}(undef, max_size)
     priorities = Vector{Float32}(undef, max_size)
     _s_batch = zeros(Float32, s_dim..., batch_size)
     _a_batch = [CartesianIndex(0,0) for i=1:batch_size]
@@ -87,21 +87,16 @@ end
 
 function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
     @assert length(sample_indices) == size(r._s_batch)[end]
-    s_batch_size = size(r._s_batch)
-    r._s_batch = reshape(r._s_batch, (:, r.batch_size))
-    r._sp_batch = reshape(r._sp_batch, (:, r.batch_size))
     for (i, idx) in enumerate(sample_indices)
         @inbounds begin
-            r._s_batch[:, i] = vec(r._experience[idx].s)
+            r._s_batch[.., i] = vec(r._experience[idx].s)
             r._a_batch[i] = CartesianIndex(r._experience[idx].a, i)
             r._r_batch[i] = r._experience[idx].r
-            r._sp_batch[:, i] = vec(r._experience[idx].sp)
+            r._sp_batch[.., i] = vec(r._experience[idx].sp)
             r._done_batch[i] = r._experience[idx].done
             r._weights_batch[i] = r._priorities[idx]
         end
     end
-    r._s_batch = reshape(r._s_batch, s_batch_size)
-    r._sp_batch = reshape(r._sp_batch, s_batch_size)
     p = r._weights_batch ./ sum(r._priorities[1:r._curr_size])
     weights = (r._curr_size * p).^(-r.β)
     return r._s_batch, r._a_batch, r._r_batch, r._sp_batch, r._done_batch, sample_indices, weights
