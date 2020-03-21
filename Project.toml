@@ -20,6 +20,7 @@ TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 
 [compat]
 Flux = "0.10"
+POMDPModelTools = "0.2"
 POMDPPolicies = "0.2.1"
 POMDPs = "0.7.3, 0.8"
 RLInterface = "0.3.6"
