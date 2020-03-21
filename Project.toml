@@ -23,6 +23,7 @@ Flux = "0.10"
 POMDPPolicies = "0.2.1"
 POMDPs = "0.7.3, 0.8"
 RLInterface = "0.3.6"
+TensorBoardLogger = "0.1"
 julia = "1"
 
 [extras]
