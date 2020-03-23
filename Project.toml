@@ -1,7 +1,7 @@
 name = "DeepQLearning"
 uuid = "de0a67f4-c691-11e8-0034-5fc6e16e22d3"
 repo = "https://github.com/JuliaPOMDP/DeepQLearning.jl"
-version = "0.4.6"
+version = "0.5.0"
 
 [deps]
 BSON = "fbb218c0-5317-5bc6-957e-2ee96dd4b1f0"
@@ -22,8 +22,8 @@ TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 EllipsisNotation = "0.4"
 BSON = "0.2"
 Flux = "0.10"
+POMDPPolicies = "0.3"
 POMDPModelTools = "0.2"
-POMDPPolicies = "0.2.1"
 POMDPs = "0.7.3, 0.8"
 Parameters = "0.12"
 RLInterface = "0.3.6"
