@@ -1,4 +1,4 @@
-@with_kw mutable struct DeepQLearningSolver <: Solver
+@with_kw mutable struct DeepQLearningSolver{E<:ExplorationPolicy} <: Solver
     qnetwork::Any = nothing # intended to be a flux model
     learning_rate::Float32 = 1f-4
     max_steps::Int64 = 1000
@@ -10,10 +10,8 @@
     double_q::Bool = true
     dueling::Bool = true
     recurrence::Bool = false
-    eps_fraction::Float32 = 0.5f0
-    eps_end::Float32 = 0.01f0
     evaluation_policy::Any = basic_evaluation
-    exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)
+    exploration_policy::E
     trace_length::Int64 = 40
     prioritized_replay::Bool = true
     prioritized_replay_alpha::Float32 = 0.6f0
@@ -81,7 +79,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     save_next = false
     action_indices = Dict(a=>i for (i, a) in enumerate(actionmap(policy)))
     for t=1:solver.max_steps
-        act, eps = exploration(solver.exploration_policy, policy, env, obs, t, solver.rng)
+        act = action(solver.exploration_policy, policy, t, obs)
         ai = action_indices[act]
         op, rew, done, info = step!(env, act)
         exp = DQExperience(obs, ai, Float32(rew), op, done)
@@ -150,12 +148,15 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
         end
 
         if t % solver.log_freq == 0 && solver.logdir !== nothing
-
+            nt = loginfo(solver.exploration_policy, t)
+            for (k, v) in pairs(nt)
+                log_value(logger, String(k), v, step=t)
+            end
             if  solver.verbose
                 @printf("%5d / %5d eps %0.3f |  avgR %1.3f | Loss %2.3e | Grad %2.3e | EvalR %1.3f \n",
-                        t, solver.max_steps, eps, avg100_reward, loss_val, grad_val, scores_eval)
+                        t, solver.max_steps, nt[1], avg100_reward, loss_val, grad_val, scores_eval)
             end
-            log_value(logger, "epsilon", eps, step = t)
+
             log_value(logger, "avg_reward", avg100_reward, step = t)
             log_value(logger, "loss", loss_val, step = t)
             log_value(logger, "grad_val", grad_val, step = t)
