@@ -19,10 +19,16 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 
 [compat]
+EllipsisNotation = "0.4"
+BSON = "0.2"
 Flux = "0.10"
 POMDPPolicies = "0.3"
+POMDPModelTools = "0.2"
 POMDPs = "0.7.3, 0.8"
+Parameters = "0.12"
 RLInterface = "0.3.6"
+TensorBoardLogger = "0.1"
+StatsBase = "0.32"
 julia = "1"
 
 [extras]
