@@ -6,7 +6,6 @@ os:
   - windows
 
 julia:
-  - 1.0
   - 1
 
 notifications:
