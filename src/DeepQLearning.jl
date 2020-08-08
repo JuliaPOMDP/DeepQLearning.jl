@@ -9,6 +9,7 @@ using BSON
 using POMDPs
 using POMDPModelTools
 using POMDPPolicies
+using POMDPLinter
 using RLInterface
 using LinearAlgebra
 using TensorBoardLogger: TBLogger, log_value
