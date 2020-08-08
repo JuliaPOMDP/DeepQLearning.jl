@@ -314,7 +314,7 @@ function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnvironmen
     return policy
 end
 
-@POMDP_require solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin
+POMDPLinter.@POMDP_require solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin
     P = typeof(mdp)
     S = statetype(P)
     A = actiontype(P)

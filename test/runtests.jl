@@ -37,7 +37,7 @@ end
     policy = solve(solver, mdp)
     r_basic = evaluate(mdp, policy, GLOBAL_RNG)
     @test r_basic >= 1.5
-    @test size(actionvalues(policy, initialstate(mdp, GLOBAL_RNG))) == (length(actions(mdp)),)
+    @test size(actionvalues(policy, rand(GLOBAL_RNG, initialstate(mdp)))) == (length(actions(mdp)),)
 end
 
 @testset "double Q DQN" begin
@@ -146,7 +146,11 @@ mutable struct StaticArrayMDP <: MDP{typeof(SVector(1)), Int64}
     state::typeof(SVector(1))
 end
 POMDPs.discount(::StaticArrayMDP) = 0.95f0
-POMDPs.initialstate(m::StaticArrayMDP, rng::AbstractRNG) = m.state 
+function POMDPs.initialstate(m::StaticArrayMDP)
+    ImplicitDistribution() do rng 
+        m.state
+    end
+end 
 
 function POMDPs.gen(m::StaticArrayMDP, s, a, rng::AbstractRNG)
     return (sp=s + SVector(a), r=m.state[1]^2)

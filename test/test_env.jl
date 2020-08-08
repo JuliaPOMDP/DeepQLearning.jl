@@ -44,10 +44,12 @@ end
 
 POMDPs.actionindex(mdp::TestMDP, a::T) where T<:Integer = a
 
-function POMDPs.initialstate(mdp::TestMDP, rng::AbstractRNG)
-    init_t = Int32(1)
-    init_s = fill(Int32(1), mdp.stack)
-    return (init_s, init_t)
+function POMDPs.initialstate(mdp::TestMDP)
+    ImplicitDistribution() do rng
+        init_t = Int32(1)
+        init_s = fill(Int32(1), mdp.stack)
+        return (init_s, init_t)
+    end
 end
 
 function POMDPs.convert_s(t::Type{V}, s::Tuple{Vector{T}, T}, mdp::TestMDP) where {T,V<:AbstractArray}
@@ -62,7 +64,7 @@ function was_in_second(s::Tuple{Vector{T}, T}) where T<:Integer
     s[1][end] == 2
 end
 
-function POMDPs.gen(::DDNNode{:sp}, mdp::TestMDP, s::Tuple{Vector{T}, T}, a::N, rng::AbstractRNG) where {T <: Integer, N <: Integer}
+function POMDPs.gen(mdp::TestMDP, s::Tuple{Vector{T}, T}, a::N, rng::AbstractRNG) where {T <: Integer, N <: Integer}
     t_new = s[2] + convert(Int32, 1) # increment time
     s_new = circshift(s[1], -1)
     if a < 4
@@ -70,7 +72,7 @@ function POMDPs.gen(::DDNNode{:sp}, mdp::TestMDP, s::Tuple{Vector{T}, T}, a::N, 
     else
         s_new[end] = s_new[end-1]
     end
-    return (s_new, t_new)
+    return (sp=(s_new, t_new),)
 end
 
 function POMDPs.reward(mdp::TestMDP, s::Tuple{Vector{T}, T}, a::N, sp::Tuple{Vector{T}, T}) where {T <: Integer, N <: Integer}
