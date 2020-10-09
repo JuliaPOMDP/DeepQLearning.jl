@@ -21,7 +21,7 @@ TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 
 [compat]
 BSON = "0.2"
-EllipsisNotation = "0.4"
+EllipsisNotation = "0.4, 1.0"
 Flux = "0.10, 0.11"
 POMDPLinter = "0.1"
 POMDPModelTools = "0.3"
