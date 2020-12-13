@@ -77,3 +77,9 @@ function sethiddenstates!(m, hs)
         end
     end
 end
+
+obs_dimensions(env::AbstractEnv) = size(observe(env))
+
+default_discount(env) = 1.0
+default_discount(env::MDPCommonRLEnv) = POMDPs.discount(convert(MDP, env.m))
+default_discount(env::POMDPCommonRLEnv) = POMDPs.discount(convert(POMDP, env.m))

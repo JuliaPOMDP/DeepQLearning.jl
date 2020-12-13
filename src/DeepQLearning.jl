@@ -6,14 +6,16 @@ using Printf
 using Parameters
 using Flux
 using BSON
-using POMDPs
 using POMDPModelTools
 using POMDPPolicies
 using POMDPLinter
-using RLInterface
 using LinearAlgebra
 using TensorBoardLogger: TBLogger, log_value
 using EllipsisNotation
+
+using CommonRLInterface: AbstractEnv, reset!, actions, observe, act!, terminated
+import POMDPs
+using POMDPs: MDP, POMDP, Policy, Solver, solve, action
 
 export DeepQLearningSolver,
        AbstractNNPolicy,

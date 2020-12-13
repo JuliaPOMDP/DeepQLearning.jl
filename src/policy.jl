@@ -14,12 +14,16 @@ reset the hidden states of a policy
 """
 function resetstate! end
 
-struct NNPolicy{P <: Union{MDP, POMDP}, Q, A} <: AbstractNNPolicy 
+struct NNPolicy{P, Q, A} <: AbstractNNPolicy 
     problem::P
     qnetwork::Q
     action_map::Vector{A}
     n_input_dims::Int64
 end
+
+NNPolicy(problem::MDPCommonRLEnv, qnetwork, action_map::Vector, n_input_dims::Int) = NNPolicy(convert(MDP, problem), qnetwork, action_map, n_input_dims)
+NNPolicy(problem::POMDPCommonRLEnv, qnetwork, action_map::Vector, n_input_dims::Int) = NNPolicy(convert(POMDP, problem), qnetwork, action_map, n_input_dims)
+
 
 function getnetwork(policy::NNPolicy)
     return policy.qnetwork
@@ -31,7 +35,7 @@ end
 
 actionmap(p::NNPolicy) = p.action_map
 
-function _action(policy::NNPolicy{P,Q,A}, o::AbstractArray{T, N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
+function _action(policy::NNPolicy, o)
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
         vals = policy.qnetwork(obatch)
@@ -41,7 +45,7 @@ function _action(policy::NNPolicy{P,Q,A}, o::AbstractArray{T, N}) where {P<:Unio
     end
 end
 
-function _actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},Q,A,T<:Real,N}
+function _actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,N}) where {P,Q,A,T<:Real,N}
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
         return dropdims(policy.qnetwork(obatch), dims=2)
@@ -50,7 +54,7 @@ function _actionvalues(policy::NNPolicy{P,Q,A}, o::AbstractArray{T,N}) where {P<
     end
 end
 
-function _value(policy::NNPolicy{P}, o::AbstractArray{T,N}) where {P<:Union{MDP,POMDP},T<:Real,N}
+function _value(policy::NNPolicy{P}, o::AbstractArray{T,N}) where {P,T<:Real,N}
     if ndims(o) == policy.n_input_dims
         obatch = reshape(o, (size(o)...,1))
         return maximum(policy.qnetwork(obatch))
@@ -59,26 +63,14 @@ function _value(policy::NNPolicy{P}, o::AbstractArray{T,N}) where {P<:Union{MDP,
     end
 end
 
-function POMDPs.action(policy::NNPolicy{P}, s) where {P <: MDP}
-    _action(policy, convert_s(Array{Float32}, s, policy.problem))
-end
+POMDPs.action(policy::NNPolicy, o) = _action(policy, o)
+POMDPs.action(policy::NNPolicy{P}, s) where {P <: MDP} = _action(policy, POMDPs.convert_s(Array{Float32}, s, policy.problem))
+POMDPs.action(policy::NNPolicy{P}, o) where {P <: POMDP} = _action(policy, POMDPs.convert_o(Array{Float32}, o, policy.problem))
 
-function POMDPs.action(policy::NNPolicy{P}, o) where {P <: POMDP}
-    _action(policy, convert_o(Array{Float32}, o, policy.problem))
-end
+POMDPPolicies.actionvalues(policy::NNPolicy, o) = _actionvalues(policy, o)
+POMDPPolicies.actionvalues(policy::NNPolicy{P}, s) where {P<:MDP} = _actionvalues(policy, POMDPs.convert_s(Array{Float32}, s, policy.problem))
+POMDPPolicies.actionvalues(policy::NNPolicy{P}, o) where {P<:POMDP} = _actionvalues(policy, POMDPs.convert_o(Array{Float32}, o, policy.problem))
 
-function POMDPPolicies.actionvalues(policy::NNPolicy{P}, s) where {P<:MDP}
-    _actionvalues(policy, convert_s(Array{Float32}, s, policy.problem))
-end
-
-function POMDPPolicies.actionvalues(policy::NNPolicy{P}, o) where {P<:POMDP}
-    _actionvalues(policy, convert_o(Array{Float32}, o, policy.problem))
-end
-
-function POMDPs.value(policy::NNPolicy{P}, s) where {P <: MDP}
-    _value(policy, convert_s(Array{Float32}, s, policy.problem))
-end
-
-function POMDPs.value(policy::NNPolicy{P}, o) where {P <: POMDP}
-    _value(policy, convert_o(Array{Float32}, o, policy.problem))
-end
+POMDPs.value(policy::NNPolicy, o) = _value(policy, o)
+POMDPs.value(policy::NNPolicy{P}, s) where {P <: MDP} = _value(policy, POMDPs.convert_s(Array{Float32}, s, policy.problem))
+POMDPs.value(policy::NNPolicy{P}, o) where {P <: POMDP} = _value(policy, POMDPs.convert_o(Array{Float32}, o, policy.problem))

@@ -28,16 +28,16 @@
 end
 
 function POMDPs.solve(solver::DeepQLearningSolver, problem::MDP)
-    env = MDPEnvironment(problem, rng=solver.rng)
+    env = MDPCommonRLEnv{AbstractArray{Float32}}(problem) # ignores solver.rng because CommonRLEnv doesn't have rng support yet
     return solve(solver, env)
 end
 
 function POMDPs.solve(solver::DeepQLearningSolver, problem::POMDP)
-    env = POMDPEnvironment(problem, rng=solver.rng)
+    env = POMDPCommonRLEnv{AbstractArray{Float32}}(problem) # ignores solver.rng because CommonRLEnv doesn't have rng support yet
     return solve(solver, env)
 end
 
-function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
+function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnv)
     action_map = collect(actions(env))
     action_indices = Dict(a=>i for (i, a) in enumerate(action_map))
 
@@ -51,12 +51,12 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnvironment)
     else
         active_q = solver.qnetwork
     end
-    policy = NNPolicy(env.problem, active_q, action_map, length(obs_dimensions(env)))
+    policy = NNPolicy(env, active_q, action_map, length(obs_dimensions(env)))
 
     return dqn_train!(solver, env, policy, replay)
 end
 
-function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, policy::AbstractNNPolicy, replay)
+function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnv, policy::AbstractNNPolicy, replay)
     if solver.logdir !== nothing 
         logger = TBLogger(solver.logdir)
         solver.logdir = logger.logdir
@@ -66,7 +66,8 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     optimizer = ADAM(solver.learning_rate)
     # start training
     resetstate!(policy)
-    obs = reset!(env)
+    reset!(env)
+    obs = observe(env)
     done = false
     step = 0
     rtot = 0
@@ -81,7 +82,9 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     for t=1:solver.max_steps
         act = action(solver.exploration_policy, policy, t, obs)
         ai = action_indices[act]
-        op, rew, done, info = step!(env, act)
+        rew = act!(env, act)
+        op = observe(env)
+        done = terminated(env)
         exp = DQExperience(obs, ai, Float32(rew), op, done)
         if solver.recurrence
             add_exp!(replay, exp)
@@ -118,7 +121,8 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
                 end
             end
 
-            obs = reset!(env)
+            reset!(env)
+            obs = observe(env)
             resetstate!(policy)
             push!(episode_steps, step)
             push!(episode_rewards, 0.0)
@@ -173,7 +177,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnvironment, polic
     return policy
 end
 
-function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnvironment, action_indices)
+function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnv, action_indices)
     # init and populate replay buffer
     if solver.recurrence
         replay = EpisodeReplayBuffer(env, solver.buffer_size, solver.batch_size, solver.trace_length)
@@ -185,11 +189,13 @@ function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnvi
 end
 
 function batch_train!(solver::DeepQLearningSolver,
-                      env::AbstractEnvironment,
+                      env::AbstractEnv,
                       policy::AbstractNNPolicy,
                       optimizer,
                       target_q,
-                      replay::PrioritizedReplayBuffer)
+                      replay::PrioritizedReplayBuffer;
+                      discount=default_discount(env)
+                     )
 
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, importance_weights = sample(replay)
    
@@ -199,7 +205,7 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = nothing
     td_vals = nothing
 
-    γ = convert(Float32, discount(env.problem))
+    γ = convert(Float32, discount)
     if solver.double_q
         qp_values = active_q(sp_batch)
         target_q_values = target_q(sp_batch)
@@ -231,11 +237,13 @@ end
 
 # for RNNs
 function batch_train!(solver::DeepQLearningSolver,
-                      env::AbstractEnvironment,
+                      env::AbstractEnv,
                       policy::AbstractNNPolicy,
                       optimizer,
                       target_q,
-                      replay::EpisodeReplayBuffer)
+                      replay::EpisodeReplayBuffer;
+                      discount=default_discount(env)
+                     )
     active_q = getnetwork(policy)
     s_batch, a_batch, r_batch, sp_batch, done_batch, trace_mask_batch = DeepQLearning.sample(replay)
     Flux.reset!(active_q)
@@ -246,7 +254,7 @@ function batch_train!(solver::DeepQLearningSolver,
     loss_val = nothing
     td_vals = nothing
 
-    γ = convert(Float32, discount(env.problem))
+    γ = convert(Float32, discount)
     q_targets = [zeros(Float32, solver.batch_size) for i=1:solver.trace_length]
     for i=1:solver.trace_length
         if solver.double_q
@@ -292,41 +300,36 @@ function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64,
 end
 
 function restore_best_model(solver::DeepQLearningSolver, problem::MDP)
-    env = MDPEnvironment(problem, rng=solver.rng)
+    env = convert(AbstractEnv, problem) # ignores solver.rng because CommonRLEnv doesn't have rng support yet
     restore_best_model(solver, env)
 end
 
-function restore_best_model(solver::DeepQLearningSolver, problem::POMDP)
-    env = POMDPEnvironment(problem, rng=solver.rng)
-    restore_best_model(solver, env)
-end
-
-function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnvironment)
+function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnv)
     if solver.dueling
         active_q = create_dueling_network(solver.qnetwork)
     else
         active_q = solver.qnetwork
     end
-    policy = NNPolicy(env.problem, active_q, collect(actions(env)), length(obs_dimensions(env)))
+    policy = NNPolicy(env, active_q, collect(actions(env)), length(obs_dimensions(env)))
     weights = BSON.load(solver.logdir*"qnetwork.bson")[:qnetwork]
     Flux.loadparams!(getnetwork(policy), weights)
     Flux.testmode!(getnetwork(policy))
     return policy
 end
 
-POMDPLinter.@POMDP_require solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin
+POMDPLinter.@POMDP_require POMDPs.solve(solver::DeepQLearningSolver, mdp::Union{MDP, POMDP}) begin
     P = typeof(mdp)
-    S = statetype(P)
-    A = actiontype(P)
-    @req discount(::P)
-    @req actions(::P)
-    as = actions(mdp)
+    S = POMDPs.statetype(P)
+    A = POMDPs.actiontype(P)
+    @req POMDPs.discount(::P)
+    @req POMDPs.actions(::P)
+    as = POMDPs.actions(mdp)
     @req length(::typeof(as))
     if isa(mdp, POMDP)
         O = obstype(mdp)
-        @req convert_o(::Type{AbstractArray}, ::O, ::P)
+        @req POMDPs.convert_o(::Type{AbstractArray}, ::O, ::P)
     else
-        @req convert_s(::Type{AbstractArray}, ::S, ::P)
+        @req POMDPs.convert_s(::Type{AbstractArray}, ::S, ::P)
     end
-    @req reward(::P,::S,::A,::S)
+    @req POMDPs.reward(::P,::S,::A,::S)
 end
