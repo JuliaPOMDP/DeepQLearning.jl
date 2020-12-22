@@ -37,7 +37,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, problem::POMDP)
     return solve(solver, env)
 end
 
-function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnv)
+function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnv)
     action_map = collect(actions(env))
     action_indices = Dict(a=>i for (i, a) in enumerate(action_map))
 
@@ -56,7 +56,7 @@ function POMDPs.solve(solver::DeepQLearningSolver, env::AbstractEnv)
     return dqn_train!(solver, env, policy, replay)
 end
 
-function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnv, policy::AbstractNNPolicy, replay)
+function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnv, policy::AbstractNNPolicy, replay)
     if solver.logdir !== nothing 
         logger = TBLogger(solver.logdir)
         solver.logdir = logger.logdir
@@ -177,7 +177,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnv, policy::Abstr
     return policy
 end
 
-function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnv, action_indices)
+function initialize_replay_buffer(solver::DeepQLearningSolver, env::AbstractEnv, action_indices)
     # init and populate replay buffer
     if solver.recurrence
         replay = EpisodeReplayBuffer(env, solver.buffer_size, solver.batch_size, solver.trace_length)
@@ -237,7 +237,7 @@ end
 
 # for RNNs
 function batch_train!(solver::DeepQLearningSolver,
-                      env::AbstractEnv,
+                      env::AbstractEnv,
                       policy::AbstractNNPolicy,
                       optimizer,
                       target_q,
@@ -304,7 +304,7 @@ function restore_best_model(solver::DeepQLearningSolver, problem::MDP)
     restore_best_model(solver, env)
 end
 
-function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnv)
+function restore_best_model(solver::DeepQLearningSolver, env::AbstractEnv)
     if solver.dueling
         active_q = create_dueling_network(solver.qnetwork)
     else

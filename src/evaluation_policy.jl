@@ -7,14 +7,14 @@ Interface for defining an evaluation policy
     returns the average reward of the current policy, the user can specify its own function 
     f to carry the evaluation, we provide a default basic_evaluation that is just a rollout. 
 """
-function evaluation(f::Function, policy::AbstractNNPolicy, env::AbstractEnv, n_eval::Int64, max_episode_length::Int64, verbose::Bool = false)
+function evaluation(f::Function, policy::AbstractNNPolicy, env::AbstractEnv, n_eval::Int64, max_episode_length::Int64, verbose::Bool = false)
     return f(policy, env, n_eval, max_episode_length, verbose)
 end
 
 
 # Examples  
 # just simulate the policy, return the average non discounted reward
-function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnv, n_eval::Int64, max_episode_length::Int64, verbose::Bool)
+function basic_evaluation(policy::AbstractNNPolicy, env::AbstractEnv, n_eval::Int64, max_episode_length::Int64, verbose::Bool)
     avg_r = 0.0
     avg_steps = 0.0 
     for i=1:n_eval
