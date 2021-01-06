@@ -36,15 +36,16 @@ mutable struct PrioritizedReplayBuffer{N<:Integer, T<:AbstractFloat,CI,Q,A<:Abst
     _weights_batch::Vector{T}
 end
 
-function PrioritizedReplayBuffer(env::AbstractEnvironment{OV},
+function PrioritizedReplayBuffer(env::AbstractEnv,
                                 max_size::Int64,
                                 batch_size::Int64;
                                 rng::AbstractRNG = MersenneTwister(0),
                                 α::Float32 = 6f-1,
                                 β::Float32 = 4f-1,
-                                ϵ::Float32 = 1f-3) where {OV}
-    s_dim = obs_dimensions(env)
-    experience = Vector{DQExperience{Int32, Float32, OV}}(undef, max_size)
+                                ϵ::Float32 = 1f-3)
+    o = observe(env)
+    s_dim = size(o)
+    experience = Vector{DQExperience{Int32, Float32, typeof(o)}}(undef, max_size)
     priorities = Vector{Float32}(undef, max_size)
     _s_batch = zeros(Float32, s_dim..., batch_size)
     _a_batch = [CartesianIndex(0,0) for i=1:batch_size]
@@ -103,24 +104,28 @@ function get_batch(r::PrioritizedReplayBuffer, sample_indices::Vector{Int64})
 end
 
 function populate_replay_buffer!(replay::PrioritizedReplayBuffer,
-                                 env::AbstractEnvironment,
+                                 env::AbstractEnv,
                                  action_indices;
                                  max_pop::Int64=replay.max_size, max_steps::Int64=100,
-                                 policy::Policy = RandomPolicy(env.problem))
-    o = reset!(env)
+                                 policy::Policy = FunctionPolicy(o->rand(actions(env))))
+    reset!(env)
+    o = observe(env)
     done = false
     step = 0
     for t=1:(max_pop - replay._curr_size)
         a = action(policy, o)
         ai = action_indices[a]
-        op, rew, done, info = step!(env, a)
+        rew = act!(env, a)
+        op = observe(env)
+        done = terminated(env)
         exp = DQExperience(o, ai, Float32(rew), op, done)
         add_exp!(replay, exp, abs(Float32(rew))) # assume initial td error is r
         o = op
         # println(o, " ", action, " ", rew, " ", done, " ", info) #TODO verbose?
         step += 1
         if done || step >= max_steps
-            o = reset!(env)
+            reset!(env)
+            o = observe(env)
             done = false
             step = 0
         end

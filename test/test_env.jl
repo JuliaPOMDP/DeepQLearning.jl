@@ -1,6 +1,5 @@
 using POMDPs
 using POMDPModelTools
-using RLInterface
 
 # Define a test environment
 # it has 2 states, it ends up after taking 5 action
@@ -21,7 +20,7 @@ mutable struct TestMDP <: MDP{Tuple{Vector{Int32}, Int32}, Int64}
     discount_factor::Float32
 end
 
-RLInterface.obsvector_type(mdp::TestMDP) = Array{Float32, length(mdp.shape) + 1}
+# RLInterface.obsvector_type(mdp::TestMDP) = Array{Float32, length(mdp.shape) + 1}
 
 function TestMDP(shape=(6,), stack=4, max_time=6, discount_factor=0.99)
     bad_state =  convert.(Int32, rand(1:50, shape...))

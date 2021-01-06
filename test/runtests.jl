@@ -4,15 +4,18 @@ using POMDPSimulators
 using POMDPPolicies
 using Flux
 using Random
-using RLInterface
 using StaticArrays
 using Test
+import CommonRLInterface
+
+RL = CommonRLInterface
+
 Random.seed!(7)
 GLOBAL_RNG = MersenneTwister(1) # for test consistency
 
 include("test_env.jl")
 
-function evaluate(mdp, policy, rng, n_ep=100, max_steps=100)
+function evaluate(mdp::Union{MDP,POMDP}, policy, rng, n_ep=100, max_steps=100)
     avg_r = 0.
     sim = RolloutSimulator(rng=rng, max_steps=max_steps)
     for i=1:n_ep
@@ -21,6 +24,24 @@ function evaluate(mdp, policy, rng, n_ep=100, max_steps=100)
     end
     return avg_r/=n_ep
 end
+
+function evaluate(env::RL.AbstractEnv, policy, rng, n_ep=100, max_steps=100)
+    avg_r = 0.
+    for i=1:n_ep
+        DeepQLearning.resetstate!(policy)
+        r = 0.0
+        step = 0
+        RL.reset!(env)
+        while !RL.terminated(env) && step < max_steps
+            a = action(policy, RL.observe(env))
+            r += RL.act!(env, a)
+            step += 1
+        end
+        avg_r += r
+    end
+    return avg_r/=n_ep
+end
+
 
 @testset "vanilla DQN" begin
     mdp = TestMDP((5,5), 4, 6)
@@ -142,25 +163,24 @@ end
     @test size(actionvalues(policy, true)) == (length(actions(pomdp)),)
 end
 
-mutable struct StaticArrayMDP <: MDP{typeof(SVector(1)), Int64}
-    state::typeof(SVector(1))
-end
-POMDPs.discount(::StaticArrayMDP) = 0.95f0
-function POMDPs.initialstate(m::StaticArrayMDP)
-    ImplicitDistribution() do rng 
-        m.state
-    end
-end 
-
-function POMDPs.gen(m::StaticArrayMDP, s, a, rng::AbstractRNG)
-    return (sp=s + SVector(a), r=m.state[1]^2)
-end
-
-POMDPs.isterminal(::StaticArrayMDP, s) = s[1] >= 3
-POMDPs.actions(::StaticArrayMDP) = [0,1]
-
-
 @testset "Static Array Env" begin
+    mutable struct StaticArrayMDP <: MDP{typeof(SVector(1)), Int64}
+        state::typeof(SVector(1))
+    end
+    POMDPs.discount(::StaticArrayMDP) = 0.95f0
+    function POMDPs.initialstate(m::StaticArrayMDP)
+        ImplicitDistribution() do rng 
+            m.state
+        end
+    end 
+    
+    function POMDPs.gen(m::StaticArrayMDP, s, a, rng::AbstractRNG)
+        return (sp=s + SVector(a), r=m.state[1]^2)
+    end
+    
+    POMDPs.isterminal(::StaticArrayMDP, s) = s[1] >= 3
+    POMDPs.actions(::StaticArrayMDP) = [0,1]
+
     mdp = StaticArrayMDP(SVector(1))
 
     model = Chain(Dense(1, 32), Dense(32, length(actions(mdp))))
@@ -175,4 +195,37 @@ POMDPs.actions(::StaticArrayMDP) = [0,1]
     policy = solve(solver, mdp)
 
     @test evaluate(mdp, policy, GLOBAL_RNG) > 1.0
+end
+
+@testset "Common RL Env" begin
+    mutable struct SimpleEnv <: RL.AbstractMarkovEnv
+        s::Int
+    end
+
+    RL.reset!(env::SimpleEnv) = env.s = 1
+    RL.actions(env::SimpleEnv) = [-1, 1]
+    RL.observe(env::SimpleEnv) = Float32[env.s]
+    RL.terminated(env::SimpleEnv) = env.s >= 3
+    function RL.act!(env::SimpleEnv, a)
+        r = env.s
+        env.s = max(1, env.s + a)
+        return r
+    end
+
+    env = SimpleEnv(1)
+
+    model = Chain(Dense(1, 32), Dense(32, length(RL.actions(env))))
+
+    max_steps = 10000
+    exploration = EpsGreedyPolicy(convert(MDP, env), LinearDecaySchedule(start=1.0, stop=0.01, steps=5),
+                                  rng=GLOBAL_RNG)
+
+    solver = DeepQLearningSolver(qnetwork = model, max_steps=10, exploration_policy=exploration,
+                                learning_rate=0.005,log_freq=500,
+                                recurrence=false,double_q=true, dueling=true, prioritized_replay=true)
+    policy = solve(solver, env)
+
+    println("here")
+
+    @test evaluate(env, policy, GLOBAL_RNG) > 1.0
 end
