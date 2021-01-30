@@ -198,7 +198,7 @@ end
 end
 
 @testset "Common RL Env" begin
-    mutable struct SimpleEnv <: RL.AbstractMarkovEnv
+    mutable struct SimpleEnv <: RL.AbstractEnv
         s::Int
     end
 
