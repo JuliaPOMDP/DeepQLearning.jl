@@ -20,7 +20,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TensorBoardLogger = "899adc3e-224a-11e9-021f-63837185c80f"
 
 [compat]
-BSON = "0.2"
+BSON = "0.2, 0.3"
 CommonRLInterface = "0.2, 0.3"
 EllipsisNotation = "0.4, 1.0"
 Flux = "0.10, 0.11"
