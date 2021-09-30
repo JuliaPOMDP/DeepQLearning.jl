@@ -1,6 +1,6 @@
 # Naive implementation
 
-struct DQExperience{N <: Real,T <: Real, A<:AbstractArray{T}}
+struct DQExperience{N <: Real,T <: Real, A<:AbstractArray}
     s::A
     a::N
     r::T
