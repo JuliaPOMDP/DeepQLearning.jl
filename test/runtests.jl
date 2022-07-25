@@ -1,7 +1,7 @@
 using DeepQLearning
 using POMDPModels
 using POMDPSimulators
-using POMDPPolicies
+using POMDPTools
 using Flux
 using Random
 using StaticArrays

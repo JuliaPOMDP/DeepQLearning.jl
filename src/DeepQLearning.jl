@@ -6,8 +6,7 @@ using Printf
 using Parameters
 using Flux
 using BSON
-using POMDPModelTools
-using POMDPPolicies
+using POMDPTools
 using POMDPLinter
 using LinearAlgebra
 using TensorBoardLogger: TBLogger, log_value

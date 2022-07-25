@@ -34,7 +34,7 @@ using POMDPs
 using Flux
 using POMDPModels
 using POMDPSimulators
-using POMDPPolicies
+using POMDPTools
 
 # load MDP model from POMDPModels or define your own!
 mdp = SimpleGridWorld();

@@ -4,8 +4,8 @@ using Random
 using DeepQLearning
 using POMDPModels
 using POMDPSimulators
+using POMDPTools
 using RLInterface
-using POMDPPolicies
 using Test
 using Flux
 
