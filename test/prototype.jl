@@ -2,7 +2,7 @@ using Revise
 using Random
 using BenchmarkTools
 using POMDPs
-using POMDPModelTools
+using POMDPTools
 # using CuArrays
 using Flux
 using DeepQLearning
