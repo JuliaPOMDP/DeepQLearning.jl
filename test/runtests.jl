@@ -1,6 +1,5 @@
 using DeepQLearning
 using POMDPModels
-using POMDPSimulators
 using POMDPTools
 using Flux
 using Random

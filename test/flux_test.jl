@@ -3,7 +3,6 @@ using POMDPs
 using Random
 using DeepQLearning
 using POMDPModels
-using POMDPSimulators
 using POMDPTools
 using RLInterface
 using Test
