@@ -5,3 +5,5 @@
 log*
 *.bson
 events.out.tfevents*
+.vscode
+Manifest.toml
