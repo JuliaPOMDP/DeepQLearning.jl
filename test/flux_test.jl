@@ -113,7 +113,7 @@ l, td = loss(q_sa, q_targets)
 
 Flux.data(l)
 
-optimizer = ADAM(Flux.params(active_q), 1e-3)
+optimizer = Adam(Flux.params(active_q), 1e-3)
 
 # use deep copy to update the target network 
 

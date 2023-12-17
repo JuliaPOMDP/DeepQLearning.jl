@@ -50,9 +50,9 @@ function create_dueling_network(m::Chain)
         @assert isa(l, Dense) error_str
     end
     nlayers = length(m.layers)
-    _, last_layer_size = size(m[end].W)
+    _, last_layer_size = size(m[end].weight)
     val = Chain([deepcopy(m[i]) for i=duel_layer+1:nlayers-1]..., Dense(last_layer_size, 1))
     adv = Chain([deepcopy(m[i]) for i=duel_layer+1:nlayers]...)
-    base = Chain([deepcopy(m[i]) for i=1:duel_layer+1-1]...)
+    base = Chain(identity, [deepcopy(m[i]) for i=1:duel_layer+1-1]...)
     return DuelingNetwork(base, val, adv)
 end

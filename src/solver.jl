@@ -63,7 +63,7 @@ function dqn_train!(solver::DeepQLearningSolver, env::AbstractEnv, policy::Abstr
     end
     active_q = getnetwork(policy) # shallow copy
     target_q = deepcopy(active_q)
-    optimizer = ADAM(solver.learning_rate)
+    optimizer = Adam(solver.learning_rate)
     # start training
     resetstate!(policy)
     reset!(env)
@@ -200,7 +200,7 @@ function batch_train!(solver::DeepQLearningSolver,
     s_batch, a_batch, r_batch, sp_batch, done_batch, indices, importance_weights = sample(replay)
    
     active_q = getnetwork(policy) 
-    p = params(active_q)
+    p = Flux.params(active_q)
 
     loss_val = nothing
     td_vals = nothing
@@ -249,7 +249,7 @@ function batch_train!(solver::DeepQLearningSolver,
     Flux.reset!(active_q)
     Flux.reset!(target_q)
 
-    p = params(active_q)
+    p = Flux.params(active_q)
 
     loss_val = nothing
     td_vals = nothing
@@ -289,7 +289,7 @@ end
 
 function save_model(solver::DeepQLearningSolver, active_q, scores_eval::Float64, saved_mean_reward::Float64, model_saved::Bool)
     if scores_eval >= saved_mean_reward
-        bson(joinpath(solver.logdir, "qnetwork.bson"), qnetwork=[w for w in params(active_q)])
+        bson(joinpath(solver.logdir, "qnetwork.bson"), qnetwork=[w for w in Flux.params(active_q)])
         if solver.verbose
             @printf("Saving new model with eval reward %1.3f \n", scores_eval)
         end
