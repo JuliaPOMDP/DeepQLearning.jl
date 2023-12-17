@@ -202,6 +202,10 @@ end
     end
 
     RL.reset!(env::SimpleEnv) = env.s = 1
+    RL.state(env::SimpleEnv) = env.s
+    RL.setstate!(env::SimpleEnv, s::Int) = env.s = s
+    RL.setstate!(env::SimpleEnv, s::Float32) = env.s = Int(s)
+    RL.setstate!(env::SimpleEnv, s::Vector{Float32}) = env.s = Int(s[1])
     RL.actions(env::SimpleEnv) = [-1, 1]
     RL.observe(env::SimpleEnv) = Float32[env.s]
     RL.terminated(env::SimpleEnv) = env.s >= 3
