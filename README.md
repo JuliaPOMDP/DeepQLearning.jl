@@ -1,7 +1,7 @@
 # DeepQLearning
 
-[![Build status](https://github.com/JuliaPOMDP/DeepQLearning.jl/workflows/CI/badge.svg)](https://github.com/JuliaPOMDP/DeepQLearning.jl/actions)
-[![CodeCov](https://codecov.io/gh/JuliaPOMDP/DeepQLearning.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaPOMDP/DeepQLearning.jl)
+[![Build status](https://github.com/JuliaPOMDP/DeepQLearning.jl/workflows/CI/badge.svg)](https://github.com/JuliaPOMDP/DeepQLearning.jl/actions/workflows/CI.yml)
+[![codecov](https://codecov.io/github/JuliaPOMDP/DeepQLearning.jl/branch/master/graph/badge.svg?token=EfDZPMisVB)](https://codecov.io/github/JuliaPOMDP/DeepQLearning.jl)
 
 This package provides an implementation of the Deep Q learning algorithm for solving MDPs. For more information see https://arxiv.org/pdf/1312.5602.pdf.
 It uses POMDPs.jl and Flux.jl
@@ -17,12 +17,6 @@ It supports the following innovations:
 
 ```Julia
 using Pkg
-# Pkg.Registry.add("https://github.com/JuliaPOMDP/Registry) # for julia 1.1+
-
-# for julia 1.0 add the registry throught the POMDP package
-# Pkg.add("POMDPs")
-# using POMDPs
-# POMDPs.add_registry() 
 Pkg.add("DeepQLearning")
 ```
 
