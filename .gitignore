@@ -7,3 +7,4 @@ log*
 events.out.tfevents*
 .vscode
 Manifest.toml
+.DS_Store

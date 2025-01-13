@@ -232,3 +232,8 @@ end
 
     @test evaluate(env, policy, GLOBAL_RNG) > 1.0
 end
+
+
+@testset "README Examples" begin
+    include("README_examples.jl")
+end

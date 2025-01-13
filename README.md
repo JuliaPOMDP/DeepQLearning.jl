@@ -27,7 +27,6 @@ using DeepQLearning
 using POMDPs
 using Flux
 using POMDPModels
-using POMDPSimulators
 using POMDPTools
 
 # load MDP model from POMDPModels or define your own!
@@ -37,7 +36,7 @@ mdp = SimpleGridWorld();
 # the gridworld state is represented by a 2 dimensional vector.
 model = Chain(Dense(2, 32), Dense(32, length(actions(mdp))))
 
-exploration = EpsGreedyPolicy(mdp, LinearDecaySchedule(start=1.0, stop=0.01, steps=10000/2))
+exploration = EpsGreedyPolicy(mdp, LinearDecaySchedule(start=1.0, stop=0.01, steps=10000/2));
 
 solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, 
                              exploration_policy = exploration,
@@ -99,9 +98,12 @@ mdp = SimpleGridWorld();
 # the model weights will be send to the gpu in the call to solve
 model = Chain(Dense(2, 32), Dense(32, length(actions(mdp))))
 
-solver = DeepQLearningSolver(qnetwork = model, max_steps=10000, 
-                             learning_rate=0.005,log_freq=500,
-                             recurrence=false,double_q=true, dueling=true, prioritized_replay=true)
+exploration = EpsGreedyPolicy(mdp, LinearDecaySchedule(start=1.0, stop=0.01, steps=10000/2));
+
+solver = DeepQLearningSolver(qnetwork=model, max_steps=10000, 
+                            exploration_policy=exploration,
+                            learning_rate=0.005,log_freq=500,
+                            recurrence=false,double_q=true, dueling=true, prioritized_replay=true)
 policy = solve(solver, mdp)
 ```
 
@@ -109,19 +111,18 @@ policy = solve(solver, mdp)
 
 **Fields of the Q Learning solver:**
 - `qnetwork::Any = nothing` Specify the architecture of the Q network 
+- `exploration_policy::<ExplorationPolicy` Exploration strategy (e.g. EpsGreedyPolicy)
 - `learning_rate::Float64 = 1e-4` learning rate 
 - `max_steps::Int64` total number of training step default = 1000
-- `target_update_freq::Int64` frequency at which the target network is updated default = 500
 - `batch_size::Int64` batch size sampled from the replay buffer default = 32
 - `train_freq::Int64` frequency at which the active network is updated default  = 4
-- `log_freq::Int64` frequency at which to logg info default = 100
 - `eval_freq::Int64` frequency at which to eval the network default = 100
+- `target_update_freq::Int64` frequency at which the target network is updated default = 500
 - `num_ep_eval::Int64` number of episodes to evaluate the policy default = 100
-- `eps_fraction::Float64` fraction of the training set used to explore default = 0.5
-- `eps_end::Float64` value of epsilon at the end of the exploration phase default = 0.01
 - `double_q::Bool` double q learning udpate default = true
 - `dueling::Bool` dueling structure for the q network default = true
 - `recurrence::Bool = false` set to true to use DRQN, it will throw an error if you set it to false and pass a recurrent model.
+- `evaluation_policy::Function = basic_evaluation` function use to evaluate the policy every `eval_freq` steps, the default is a rollout that return the undiscounted average reward 
 - `prioritized_replay::Bool` enable prioritized experience replay default = true
 - `prioritized_replay_alpha::Float64` default = 0.6
 - `prioritized_replay_epsilon::Float64` default = 1e-6
@@ -129,9 +130,8 @@ policy = solve(solver, mdp)
 - `buffer_size::Int64` size of the experience replay buffer default = 1000
 - `max_episode_length::Int64` maximum length of a training episode default = 100
 - `train_start::Int64` number of steps used to fill in the replay buffer initially default = 200
-- `save_freq::Int64` save the model every `save_freq` steps, default = 1000
-- `evaluation_policy::Function = basic_evaluation` function use to evaluate the policy every `eval_freq` steps, the default is a rollout that return the undiscounted average reward 
-- `exploration_policy::Any = linear_epsilon_greedy(max_steps, eps_fraction, eps_end)` exploration strategy (default is epsilon greedy with linear decay)
 - `rng::AbstractRNG` random number generator default = MersenneTwister(0)
 - `logdir::String = ""` folder in which to save the model
+- `save_freq::Int64` save the model every `save_freq` steps, default = 1000
+- `log_freq::Int64` frequency at which to logg info default = 100
 - `verbose::Bool` default = true

@@ -10,7 +10,7 @@ function (m::DuelingNetwork)(inpt)
     return m.val(x) .+ m.adv(x) .- mean(m.adv(x), dims=1)
 end
 
-Flux.@functor DuelingNetwork
+Flux.@layer DuelingNetwork
 
 function Flux.reset!(m::DuelingNetwork)
     Flux.reset!(m.base)
